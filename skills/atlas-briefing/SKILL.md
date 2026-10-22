@@ -75,7 +75,7 @@ To update an atlas later, rebuild and publish the same `file_path` again: the li
 
 ## Research the notes ("research my atlas comments")
 
-Notes are comment threads on the atlas artifact. Find the atlas link (from this conversation, the user, or `Artifact` `action: "list"`), then follow `references/research-comments.md`. In short: read the open threads with the `ArtifactComments` tool, research each on the web, reply in its own thread with a short sourced answer, resolve it, and give the user one line per note in chat.
+Notes are comment threads on the atlas artifact. Find the atlas link (from this conversation, the user, or `Artifact` `action: "list"`), then follow `references/research-comments.md`. In short: read the open threads with the `ArtifactComments` tool, research each note on the web, answer them all in one sourced reply on the "Send" thread (Claude can't reply in plain note threads), resolve it, and give the user one line per note in chat.
 
 ## Rules that keep an atlas trustworthy
 
