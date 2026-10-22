@@ -1,5 +1,7 @@
 # Batch Signal
 
+> **New build:** the current app lives in [`atlas/`](atlas/README.md), a narrated, interruptible map of the batch with grounded live answers. Everything else at the top level is the earlier ChatGPT Sites prototype, kept for reference.
+
 Batch reference: `yc__s26` (YC Summer 2026).
 
 An interactive YC startup explorer with narrated scenes, startup filters, and an ElevenLabs conversational host that can navigate the experience while answering questions.
