@@ -8,7 +8,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 const out = new URL("../dist-artifact/", import.meta.url);
 execSync("npx vite build --outDir dist-artifact --emptyOutDir", {
   stdio: "inherit",
-  env: { ...process.env, VITE_TARGET: "artifact" },
+  env: { ...process.env, VITE_TARGET: "artifact", VITE_ARTIFACT_URL: process.env.ARTIFACT_URL ?? "" },
   cwd: new URL("..", import.meta.url),
 });
 

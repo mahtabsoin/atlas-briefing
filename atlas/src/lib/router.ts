@@ -7,8 +7,6 @@ import type { Atlas } from "../../shared/types";
 export type Context = { group: number | null; company: string | null };
 
 export type Action =
-  | { kind: "play" }
-  | { kind: "pause" }
   | { kind: "next" }
   | { kind: "prev" }
   | { kind: "home" }
@@ -25,9 +23,7 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
   const subject = subjectGroup(atlas, s, ctx);
 
   // Navigation and controls
-  if (/^(play|resume|continue|start)( the tour)?$/.test(s)) return { kind: "play" };
-  if (/^(pause|stop|wait|hold on)$/.test(s)) return { kind: "pause" };
-  if (/^(next|skip)( group| chapter)?$/.test(s)) return { kind: "next" };
+  if (/^(next|skip|continue|play|start)( group| chapter| the tour)?$/.test(s)) return { kind: "next" };
   if (/^(back|previous|go back)$/.test(s)) return { kind: "prev" };
   if (/^(zoom out|overview|show (me )?everything|home|all companies)$/.test(s)) return { kind: "home" };
   if (/(dark|night) mode/.test(s)) return { kind: "theme", dark: true };
@@ -36,7 +32,7 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
   if (/hand ?off|send (this |it )?to (an |my )?agent/.test(s)) return { kind: "handoff" };
 
   // Anything about money, news or the outside world needs sources beyond the snapshot
-  if (/\b(news|press|coverage|search the web|web search)\b/.test(s)) return { kind: "remote", tier: "web" };
+  if (/\b(news|press|coverage|search the web|web search|research)\b/.test(s)) return { kind: "remote", tier: "web" };
   if (/\b(funding|raised|investors?|valuation|revenue|customers|traction|official|website|filing|launch)\b/.test(s)) {
     return { kind: "remote", tier: "official" };
   }
@@ -63,14 +59,14 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
 }
 
 /** Suggestions follow what's on screen. */
-export function suggestions(atlas: Atlas, ctx: Context, web = true): string[] {
+export function suggestions(atlas: Atlas, ctx: Context): string[] {
   if (ctx.company) {
     const name = atlas.companies.find((c) => c.slug === ctx.company)!.name;
-    return [web ? `What has ${name} raised?` : `Compare ${name} with similar companies`, `Add ${name} to notes`, `Hand off: research ${name}`];
+    return [`Compare ${name} with similar companies`, `Research ${name}'s funding`, `Add ${name} to notes`];
   }
   if (ctx.group !== null) {
     const g = atlas.groups[ctx.group];
-    return [`Largest teams in ${g.short}`, "Which are outside San Francisco?", web ? `Search news on ${g.short}` : `Compare the approaches in ${g.short}`];
+    return [`Largest teams in ${g.short}`, `Compare the approaches in ${g.short}`, "Which are outside San Francisco?", `Research news on ${g.short}`];
   }
   return ["Which groups have the biggest teams?", "Where are these companies based?", "Show the ungrouped companies"];
 }

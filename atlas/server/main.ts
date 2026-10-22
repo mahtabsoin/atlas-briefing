@@ -1,4 +1,4 @@
-// HTTP server: the answer API, optional voice and agent hand-off, and the built app.
+// HTTP server: the answer API, optional agent hand-off, and the built app.
 import { readFileSync } from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
@@ -14,7 +14,6 @@ const anthropic = env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 const searchProvider = env.SEARCH_PROVIDER === "anthropic" || !env.EXA_API_KEY ? "anthropic" : "exa";
 const effort = (["low", "medium", "high"].includes(env.ATLAS_EFFORT ?? "") ? env.ATLAS_EFFORT : "low") as "low" | "medium" | "high";
 const askLimiter = new RateLimiter(Number(env.ASK_LIMIT_PER_HOUR ?? 30), 60 * 60 * 1000);
-const speakLimiter = new RateLimiter(Number(env.SPEAK_LIMIT_PER_HOUR ?? 60), 60 * 60 * 1000);
 
 const app = new Hono();
 const clientId = (c: { req: { header(name: string): string | undefined } }) =>
@@ -24,7 +23,6 @@ app.get("/api/health", (c) =>
   c.json({
     answers: !!anthropic,
     search: anthropic ? searchProvider : null,
-    voice: !!(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID),
     handoff: !!env.AGENT_WEBHOOK_URL,
   }),
 );
@@ -65,25 +63,6 @@ app.post("/api/ask", async (c) => {
     },
   });
   return new Response(stream, { headers: { "content-type": "application/x-ndjson", "cache-control": "no-store" } });
-});
-
-app.post("/api/speak", async (c) => {
-  if (!env.ELEVENLABS_API_KEY || !env.ELEVENLABS_VOICE_ID) return c.json({ error: "Voice is not configured." }, 503);
-  if (!speakLimiter.take(clientId(c))) return c.json({ error: "Voice limit reached for now." }, 429);
-  const body = await c.req.json().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text.trim().slice(0, 600) : "";
-  if (!text) return c.json({ error: "Nothing to say." }, 400);
-  const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(env.ELEVENLABS_VOICE_ID)}/stream?output_format=mp3_44100_64`,
-    {
-      method: "POST",
-      headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify({ text, model_id: "eleven_flash_v2_5" }),
-      signal: AbortSignal.timeout(20_000),
-    },
-  ).catch(() => null);
-  if (!res?.ok || !res.body) return c.json({ error: "Voice service failed." }, 502);
-  return new Response(res.body, { headers: { "content-type": "audio/mpeg", "cache-control": "no-store" } });
 });
 
 app.post("/api/handoff", async (c) => {

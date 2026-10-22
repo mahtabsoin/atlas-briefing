@@ -1,13 +1,13 @@
 # Batch Signal: Atlas
 
-A three-minute, interruptible map of the 230 companies in YC Summer 2026. A narrated tour walks through eight groups; at any point the viewer can click, type or speak to drill in, ask a question, save a note or hand a task to an agent. Answers appear as cards on the page and light up the map.
+A one-screen briefing on the 230 companies in YC Summer 2026. The viewer pages through eight groups at their own pace and can drill in, ask a question, or send a note to Claude for background web research. Answers appear as cards and light up the map.
 
 ## How it works
 
 ```
 Browser                                   Server (Node, one process)
 ───────                                   ──────────────────────────
-Tour  ── pre-written narration            /api/ask    Claude + tools, fixed budget,
+Pages ── written from the snapshot         /api/ask    Claude + tools, fixed budget,
 Map   ── 230 dots, 8 groups                           NDJSON progress, validated card
 Router ─ answers what the snapshot can    /api/speak  ElevenLabs, optional
          (instant, no server)             /api/handoff  POST to your agent, optional
@@ -48,18 +48,23 @@ With no keys, the tour, map, dataset answers and notes all work; live questions 
 |---|---|
 | `ANTHROPIC_API_KEY` | Official-sources and web answers (default model `claude-opus-5-5`, effort `low`) |
 | `EXA_API_KEY` | Exa for web search; without it, Claude's built-in web search is used |
-| `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | `npm run voice` records narration to `public/voice/`; answers are spoken live |
 | `AGENT_WEBHOOK_URL` | "Hand off to agent" POSTs `{task, context, sources}` here; otherwise the brief is copied |
 
 `ASK_LIMIT_PER_HOUR` (default 30) and `SPEAK_LIMIT_PER_HOUR` (default 60) cap spend per visitor.
 
-## Claude artifact edition
+## Claude artifact edition (recommended)
 
 ```sh
-npm run artifact   # -> dist-artifact/batch-signal.html, one self-contained page
+ARTIFACT_URL=<the artifact's claude.ai link> npm run artifact   # -> dist-artifact/batch-signal.html
 ```
 
-Publish that file as a Claude artifact with the `sample` and `downloads` capabilities. The tour, map, instant answers and notes work for every viewer. Live questions go to the viewer's own Claude plan (they approve the first one), with the snapshot as Claude's only tool and the same card checks as the server. There is no web search, microphone or recorded narration in this edition; "hand off" copies an agent brief.
+Publish that file as a Claude artifact with capabilities `sample`, `downloads`, `db`, `user` and `mcp` (`Claude Code Remote`: `list_environments`, `create_session`). On first publish you won't know the link yet: publish, then rebuild with `ARTIFACT_URL` set and republish to the same link.
+
+- **One screen.** Page through the briefing with ← → or the dock; the map and page list sit beside the scene.
+- **Questions** run on the viewer's own Claude plan, with the snapshot as Claude's only tool.
+- **Research on the web** starts a background Claude Code session through the viewer's Claude Code connector. It searches, then writes its finding back into this atlas's store; the notes panel shows it when it lands.
+- **Notes** are saved with the atlas (per viewer), exportable as Markdown.
+- Using the store and connectors keeps the artifact inside the owner's organization. For a public share, publish with only `sample` and `downloads`: research then falls back to copying a brief.
 
 ## Deploy
 
@@ -78,7 +83,7 @@ Works on any host that runs a container (Fly.io, Render, Railway, Cloud Run). Re
 - `data/assignments.json`: company → group and evidence span.
 - `npm run atlas` builds `shared/atlas.generated.json` and fails if any of the above disagree.
 
-To point this at another batch or corpus, replace the snapshot, rewrite `groups.json`, run `npm run classify -- --write`, then `npm run atlas` and `npm run voice`.
+To point this at another batch or corpus, replace the snapshot, rewrite `groups.json`, run `npm run classify -- --write`, then `npm run atlas`.
 
 ## Checks
 
@@ -90,5 +95,5 @@ npm run build    # typecheck + production bundle
 ## Not yet
 
 - No accounts: notes live in the browser, and the rate limit is per IP and per process.
-- Narration audio isn't recorded until you run `npm run voice` with your ElevenLabs key; until then the tour runs on captions.
+- Background research is verified up to the write-back into the store; starting the session from the page has only run against a stand-in.
 - Live answers have been tested against a scripted stand-in for the Claude API, not yet against the live API with real keys.

@@ -1,5 +1,5 @@
-// Voice in: the browser's speech recognition (Chrome, Edge, Safari).
-// Voice out: narration recorded ahead of time, and spoken answers from the server.
+// Voice input through the browser's speech recognition (Chrome, Edge, Safari).
+// Hosted edition only: the Claude artifact frame doesn't allow the microphone.
 
 type Recognition = {
   lang: string;
@@ -37,43 +37,4 @@ export function listen(): { result: Promise<string | null>; stop: () => void } {
   });
   rec.start();
   return { result, stop: () => rec.stop() };
-}
-
-export type VoiceManifest = { chapters: string[] };
-
-/** Narration files produced by `npm run voice`. Absent means captions only. */
-export async function loadManifest(): Promise<VoiceManifest | null> {
-  try {
-    const res = await fetch("/voice/manifest.json");
-    if (!res.ok) return null;
-    const m = (await res.json()) as VoiceManifest;
-    return Array.isArray(m.chapters) && m.chapters.length ? m : null;
-  } catch {
-    return null;
-  }
-}
-
-let answerAudio: HTMLAudioElement | null = null;
-
-export async function speakAnswer(text: string): Promise<void> {
-  stopAnswer();
-  try {
-    const res = await fetch("/api/speak", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) return;
-    const url = URL.createObjectURL(await res.blob());
-    answerAudio = new Audio(url);
-    answerAudio.onended = () => URL.revokeObjectURL(url);
-    await answerAudio.play();
-  } catch {
-    // Speaking is a nicety; the card already shows the answer.
-  }
-}
-
-export function stopAnswer() {
-  answerAudio?.pause();
-  answerAudio = null;
 }

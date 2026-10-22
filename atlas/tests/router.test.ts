@@ -10,8 +10,8 @@ const inDefense: Context = { group: defense, company: null };
 
 describe("router", () => {
   it("handles spoken controls", () => {
-    expect(route(atlas, "Pause", overview)).toEqual({ kind: "pause" });
     expect(route(atlas, "next", overview)).toEqual({ kind: "next" });
+    expect(route(atlas, "continue", overview)).toEqual({ kind: "next" });
     expect(route(atlas, "zoom out", inDefense)).toEqual({ kind: "home" });
     expect(route(atlas, "add this to my notes", inDefense)).toEqual({ kind: "pin" });
     expect(route(atlas, "switch to dark mode", overview)).toEqual({ kind: "theme", dark: true });
@@ -53,6 +53,7 @@ describe("router", () => {
   it("sends money and news questions beyond the snapshot", () => {
     expect(route(atlas, "What has Nori raised?", overview)).toEqual({ kind: "remote", tier: "official" });
     expect(route(atlas, "Search news on Defense", inDefense)).toEqual({ kind: "remote", tier: "web" });
+    expect(route(atlas, "Research Edgerun's funding", inDefense)).toEqual({ kind: "remote", tier: "web" });
     expect(route(atlas, "What do analysts think about agents?", overview)).toEqual({ kind: "remote", tier: "official" });
   });
 

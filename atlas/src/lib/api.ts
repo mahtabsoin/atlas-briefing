@@ -1,9 +1,9 @@
 import type { AskEvent } from "../../shared/card";
 import type { Context } from "./router";
 
-export type Health = { answers: boolean; search: "exa" | "anthropic" | null; voice: boolean; handoff: boolean };
+export type Health = { answers: boolean; search: "exa" | "anthropic" | null; handoff: boolean };
 
-export const OFFLINE: Health = { answers: false, search: null, voice: false, handoff: false };
+export const OFFLINE: Health = { answers: false, search: null, handoff: false };
 
 export async function getHealth(): Promise<Health> {
   try {
