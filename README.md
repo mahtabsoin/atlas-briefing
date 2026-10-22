@@ -1,5 +1,7 @@
 # Batch Signal
 
+Batch reference: `yc__s26` (YC Summer 2026).
+
 An interactive YC startup explorer with narrated scenes, startup filters, and an ElevenLabs conversational host that can navigate the experience while answering questions.
 
 ## Status
