@@ -79,11 +79,13 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 
 /* Scene: the one thing on screen */
 .scene {
-  min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px;
+  min-height: 0; overflow: hidden; display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
   padding: clamp(18px, 3vw, 32px);
 }
-.scene-body { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 4px; animation: enter 0.35s ease both; }
+.scene-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; container-type: size; }
+.fit { height: 100%; }
+.scene-body { display: flex; flex-direction: column; gap: 16px; animation: enter 0.35s ease both; }
 @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .scene h1 { margin: 0; font-size: clamp(24px, 3.2vw, 36px); line-height: 1.12; letter-spacing: -0.02em; font-weight: 650; text-wrap: balance; }
 .lead { margin: 0; font-size: clamp(16px, 1.5vw, 19px); line-height: 1.55; color: var(--ink2); max-width: 70ch; }
@@ -233,3 +235,52 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 }
 .comment:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .drawer-foot { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+
+/* Scenes that fill the frame exactly */
+.scene-body.fill { height: 100%; min-height: 0; }
+.scene-body.fill > * { flex: none; }
+.scene-body.fill > .tiles-fill, .scene-body.fill > .overview-grid { flex: 1 1 auto; min-height: 0; }
+.tiles-fill { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.tiles-fill .tiles { align-content: start; }
+.tiles-fill .tile { height: 76px; justify-content: flex-start; }
+.tiles-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: auto; }
+.round.small { width: 28px; height: 28px; }
+.overview-grid { min-height: 0; }
+.overview-grid .map.big { height: 100%; width: auto; max-width: 100%; max-height: 100%; aspect-ratio: 16 / 11; justify-self: start; }
+.overview-grid .glist { max-height: 100%; overflow: hidden; }
+@media (max-width: 720px) { .overview-grid .map.big { height: auto; width: 100%; } }
+
+/* Short desktop frames (e.g. the Claude artifact panel): give the scene the full width */
+@media (min-width: 861px) and (max-height: 760px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .stage .rail { display: none; }
+  .stage .rail.open {
+    display: flex; position: absolute; z-index: 5; top: 56px; right: 16px; width: 360px; bottom: 120px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  }
+  .map-toggle { display: inline-flex; }
+}
+.intro { display: flex; flex-direction: column; gap: 16px; }
+
+@media (max-width: 600px) { .scene-body.fill { height: auto; } }
+
+/* Compact: what a scene becomes when the frame is short (decided by the frame's own height) */
+@container (max-height: 600px) {
+  .scene-body { gap: 10px; }
+  .scene-body h1 { font-size: clamp(22px, 2.4vw, 28px); }
+  .lead { font-size: 15px; line-height: 1.5; }
+  .stat b { font-size: 18px; }
+  .tile { padding: 7px 10px; }
+  .tile small { -webkit-line-clamp: 1; }
+  .tiles-fill .tile { height: 54px; }
+  .grow { padding: 6px 0; font-size: 13.5px; }
+  .scene-body.overview .stats { display: none; }
+  .glist { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; align-content: start; }
+}
+/* Wide but short: intro beside the companies */
+@container (min-width: 700px) and (max-height: 600px) {
+  .scene-body.group { display: grid; grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.15fr); gap: 24px; align-items: stretch; }
+  .scene-body.group .intro { gap: 10px; }
+  .scene-body.group .tiles-fill { height: 100%; }
+  .scene-body.group .tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+}

@@ -323,12 +323,16 @@ export default function App() {
 
       <main className="stage">
         <section className="scene" aria-live="polite">
+          <div className="scene-scroll">
+          <div className="fit">
           {view.kind === "page" && page === 0 && <OverviewScene atlas={atlas} onGroup={(g) => goPage(g + 1)} onCompany={openCompany} onNote={pin} />}
           {view.kind === "page" && page > 0 && <GroupScene atlas={atlas} group={page - 1} onCompany={openCompany} onNote={pin} />}
           {view.kind === "company" && <CompanyScene atlas={atlas} slug={view.slug} onCompany={openCompany} onNote={pin} />}
           {view.kind === "answer" && (
             <AnswerScene atlas={atlas} answer={view} onCompany={openCompany} onNote={pin} onResearch={() => researchQuestion(view.question, view.ctx)} />
           )}
+          </div>
+          </div>
         </section>
         <Rail
           atlas={atlas}

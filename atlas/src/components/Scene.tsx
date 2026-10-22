@@ -1,4 +1,5 @@
 // The one thing on screen. Each scene is readable at a glance and fits the stage.
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Card } from "../../shared/card";
 import { inGroup } from "../../shared/dataset";
 import { ycProfileUrl, type Atlas, type Company } from "../../shared/types";
@@ -38,7 +39,7 @@ function NoteButton({ onNote }: { onNote: () => void }) {
 export function OverviewScene({ atlas, onGroup, onCompany, onNote }: { atlas: Atlas; onGroup: (g: number) => void; onCompany: (s: string) => void; onNote: () => void }) {
   const grouped = atlas.companies.filter((c) => c.group >= 0).length;
   return (
-    <div className="scene-body" key="overview">
+    <div className="scene-body fill overview" key="overview">
       <div className="scene-head">
         <span className="label">Briefing · {atlas.groups.length + 1} pages</span>
         <NoteButton onNote={onNote} />
@@ -62,8 +63,7 @@ export function OverviewScene({ atlas, onGroup, onCompany, onNote }: { atlas: At
         </div>
       </div>
       <p className="fine">
-        Groups are an editorial read of each company's own YC one-liner. A company joins a group only when its one-liner contains a supporting phrase, highlighted on its page. Source:{" "}
-        <a href={atlas.source} target="_blank" rel="noopener noreferrer">YC directory</a>, snapshot {atlas.snapshotDate}.
+        Groups come from each company's own YC one-liner. Source: <a href={atlas.source} target="_blank" rel="noopener noreferrer">YC directory</a>, {atlas.snapshotDate}.
       </p>
     </div>
   );
@@ -73,7 +73,8 @@ export function GroupScene({ atlas, group, onCompany, onNote }: { atlas: Atlas; 
   const g = atlas.groups[group];
   const members = inGroup(atlas, group);
   return (
-    <div className="scene-body" key={g.id}>
+    <div className="scene-body fill group" key={g.id}>
+      <div className="intro">
       <div className="scene-head">
         <span className="label">Group {group + 1} of {atlas.groups.length}</span>
         <NoteButton onNote={onNote} />
@@ -85,19 +86,24 @@ export function GroupScene({ atlas, group, onCompany, onNote }: { atlas: Atlas; 
         <div className="stat"><b>{g.medianTeam}</b><span>median team</span></div>
         <div className="stat"><b>{members.filter((c) => c.city === "San Francisco").length}</b><span>in San Francisco</span></div>
       </div>
-      <div className="tiles">
-        {members.map((c) => (
-          <button key={c.slug} className="tile" onClick={() => onCompany(c.slug)} title={c.oneLiner}>
-            <b>
-              {c.name}
-              {!c.evidence && <span className="tag">judgment call</span>}
-            </b>
-            <small>
-              <Evidence c={c} />
-            </small>
-          </button>
-        ))}
       </div>
+      <FitTiles
+        count={members.length}
+        render={(i) => {
+          const c = members[i];
+          return (
+            <button key={c.slug} className="tile" onClick={() => onCompany(c.slug)} title={c.oneLiner}>
+              <b>
+                {c.name}
+                {!c.evidence && <span className="tag">judgment call</span>}
+              </b>
+              <small>
+                <Evidence c={c} />
+              </small>
+            </button>
+          );
+        }}
+      />
     </div>
   );
 }
@@ -175,6 +181,56 @@ export function AnswerScene({ atlas, answer, onCompany, onNote, onResearch }: An
         <div className="box row" style={{ justifyContent: "space-between" }}>
           <span style={{ fontSize: 13.5 }}>{answer.card?.needsWeb ?? "The snapshot can't answer this."} Add it to your notes and Claude researches it on the web when you send them.</span>
           <button className="btn primary" onClick={onResearch}>Add to research notes</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Tiles that fill the space left in the scene. Extra tiles go to a next set, never a scrollbar. */
+function FitTiles({ count, render }: { count: number; render: (i: number) => ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  const [per, setPer] = useState(count);
+  const [set, setSet] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    const g = grid.current;
+    if (!el || !g) return;
+    const measure = () => {
+      // Phones scroll naturally; paging only where there's room for a grid.
+      if (window.innerWidth <= 600) return setPer(count);
+      const cols = getComputedStyle(g).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+      const tile = g.firstElementChild as HTMLElement | null;
+      const rowH = (tile?.offsetHeight ?? 60) + 8;
+      const pagerH = 34;
+      let rows = Math.max(1, Math.floor((el.clientHeight + 8) / rowH));
+      if (rows * cols < count) rows = Math.max(1, Math.floor((el.clientHeight - pagerH + 8) / rowH));
+      setPer(Math.max(cols, rows * cols));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [count]);
+  const sets = Math.max(1, Math.ceil(count / per));
+  const current = Math.min(set, sets - 1);
+  const start = current * per;
+  const end = Math.min(count, start + per);
+  return (
+    <div className="tiles-fill" ref={box}>
+      <div className="tiles" ref={grid}>
+        {Array.from({ length: end - start }, (_, k) => render(start + k))}
+      </div>
+      {sets > 1 && (
+        <div className="tiles-pager">
+          <span className="label num">{start + 1}–{end} of {count}</span>
+          <button className="round small" onClick={() => setSet(current - 1)} disabled={current === 0} aria-label="Previous companies">
+            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
+          </button>
+          <button className="round small" onClick={() => setSet(current + 1)} disabled={current === sets - 1} aria-label="More companies">
+            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
+          </button>
         </div>
       )}
     </div>
