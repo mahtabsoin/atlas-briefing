@@ -43,3 +43,6 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Built atlases (rebuild with the skill)
+atlases/*/atlas.html
