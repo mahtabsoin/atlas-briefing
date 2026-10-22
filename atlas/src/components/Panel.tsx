@@ -145,13 +145,14 @@ type AnswerProps = {
   atlas: Atlas;
   answer: AnswerState;
   webHint: string;
+  webAvailable: boolean;
   onCompany: (slug: string) => void;
   onRunWeb: () => void;
   onPin: () => void;
   onResume: () => void;
 };
 
-export function AnswerView({ atlas, answer, webHint, onCompany, onRunWeb, onPin, onResume }: AnswerProps) {
+export function AnswerView({ atlas, answer, webHint, webAvailable, onCompany, onRunWeb, onPin, onResume }: AnswerProps) {
   return (
     <div className="view">
       <div className="asked">{answer.question}</div>
@@ -181,7 +182,11 @@ export function AnswerView({ atlas, answer, webHint, onCompany, onRunWeb, onPin,
       {answer.card?.needsWeb && (
         <div className="box">
           <p className="fine" style={{ marginBottom: 8 }}>{answer.card.needsWeb}</p>
-          <button className="btn primary" onClick={onRunWeb}>Search the web</button>
+          {webAvailable ? (
+            <button className="btn primary" onClick={onRunWeb}>Search the web</button>
+          ) : (
+            <button className="btn primary" onClick={onPin}>Add to notes for an agent</button>
+          )}
         </div>
       )}
       {answer.status !== "confirm" && (

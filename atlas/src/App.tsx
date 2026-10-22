@@ -10,6 +10,8 @@ import { ask, getHealth, handoff, OFFLINE, type Health } from "./lib/api";
 import { agentBrief, loadNotes, newNote, notesMarkdown, saveNotes, type Note } from "./lib/notes";
 import { route, suggestions, type Context } from "./lib/router";
 import { canListen, listen, loadManifest, speakAnswer, stopAnswer, type VoiceManifest } from "./lib/voice";
+import { ARTIFACT, getDownloads, getSample, type Sample } from "./lib/env";
+import { askClaude } from "./lib/sampleAsk";
 
 const atlas = atlasJson as Atlas;
 const CH = 20; // seconds per chapter when there is no recorded narration
@@ -40,6 +42,7 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null);
   const stopListening = useRef<(() => void) | null>(null);
   const sideRef = useRef<HTMLElement>(null);
+  const sampleRef = useRef<Sample | null>(null);
 
   const chapter = Math.min(CHAPTERS - 1, Math.floor(t / CH));
   const within = t >= TOTAL ? 1 : Math.max(0, Math.min(1, (t - chapter * CH) / CH));
@@ -49,11 +52,20 @@ export default function App() {
     view.kind === "answer" ? view.ctx : company ? { group: company.group >= 0 ? company.group : null, company: company.slug } : { group: tourGroup, company: null };
 
   useEffect(() => {
+    if (ARTIFACT) {
+      // Live questions run on the viewer's own Claude plan; nothing else is served.
+      getSample().then((sample) => {
+        sampleRef.current = sample;
+        setHealth({ ...OFFLINE, answers: !!sample });
+      });
+      return;
+    }
     getHealth().then(setHealth);
     loadManifest().then(setManifest);
   }, []);
   useEffect(() => saveNotes(notes), [notes]);
   useEffect(() => {
+    if (ARTIFACT) return; // the Claude viewer owns the theme
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     try {
       localStorage.setItem("bs-theme", dark ? "dark" : "light");
@@ -165,6 +177,17 @@ export default function App() {
   };
 
   const sendToAgent = async (note: Note) => {
+    if (ARTIFACT) {
+      // No server here: copy the brief while still inside the click.
+      let status: Note["status"] = "open";
+      try {
+        await navigator.clipboard.writeText(agentBrief(note, atlas.batch));
+        status = "copied";
+      } catch {
+        status = "open";
+      }
+      return setNotes((ns) => ns.map((n) => (n.id === note.id ? { ...n, status } : n)));
+    }
     const result = await handoff(agentBrief(note, atlas.batch), ctx, note.sources);
     let status: Note["status"] = "sent";
     if (result !== "sent") {
@@ -194,7 +217,11 @@ export default function App() {
     setView({ kind: "answer", id, tier, ctx: context, question, status: "running", steps: [] });
     const update = (fn: (v: Extract<View, { kind: "answer" }>) => Partial<View>) =>
       setView((v) => (v.kind === "answer" && v.id === id ? ({ ...v, ...fn(v) } as View) : v));
-    for await (const event of ask(question, tier, context, controller.signal)) {
+    const events =
+      ARTIFACT && sampleRef.current
+        ? askClaude(sampleRef.current, atlas, question, context, controller.signal)
+        : ask(question, tier, context, controller.signal);
+    for await (const event of events) {
       if (event.type === "step") update((v) => ({ steps: [...v.steps, event.label] }));
       else if (event.type === "card") {
         update(() => ({ status: "done", card: event.card }));
@@ -245,6 +272,26 @@ export default function App() {
             status: "error",
             steps: [],
             error: "Live answers aren't switched on for this server. The snapshot can still answer questions about groups, teams and locations.",
+          });
+        }
+        if (action.tier === "web" && ARTIFACT) {
+          interrupt();
+          return setView({
+            kind: "answer",
+            id: ++answerSeq.current,
+            tier: "web",
+            ctx,
+            question,
+            status: "done",
+            steps: [],
+            card: {
+              summary: "Web search isn't part of this edition. Add the question to your notes and hand it to an agent, or ask what the snapshot says.",
+              tier: "dataset",
+              blocks: [],
+              sources: [],
+              notStated: [],
+              highlight: [],
+            },
           });
         }
         if (action.tier === "web") {
@@ -325,12 +372,16 @@ export default function App() {
           <a className="mono" href={atlas.source} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
             Source: YC directory · snapshot {atlas.snapshotDate}
           </a>
-          <button className="btn" onClick={() => setSound(!sound)} aria-pressed={!sound}>
-            {sound ? "Sound on" : "Sound off"}
-          </button>
-          <button className="btn" onClick={() => setDark(!dark)} aria-label={`Switch to ${dark ? "light" : "dark"} mode`}>
-            {dark ? "Light" : "Dark"}
-          </button>
+          {!ARTIFACT && (
+            <>
+              <button className="btn" onClick={() => setSound(!sound)} aria-pressed={!sound}>
+                {sound ? "Sound on" : "Sound off"}
+              </button>
+              <button className="btn" onClick={() => setDark(!dark)} aria-label={`Switch to ${dark ? "light" : "dark"} mode`}>
+                {dark ? "Light" : "Dark"}
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -354,10 +405,11 @@ export default function App() {
             ref={inputRef}
             value={askText}
             placeholder={placeholder}
-            chips={suggestions(atlas, ctx)}
+            chips={suggestions(atlas, ctx, !ARTIFACT)}
             activeTier={activeTier}
             listening={listening}
-            canListen={canListen()}
+            canListen={!ARTIFACT && canListen()}
+            showMic={!ARTIFACT}
             onChange={setAskText}
             onSubmit={() => handleInput(askText)}
             onChip={handleInput}
@@ -387,6 +439,7 @@ export default function App() {
               answer={view}
               webHint={`Up to 5 searches on allowlisted outlets and official sources${health.search === "exa" ? " (Exa)" : ""}, about 30 seconds.`}
               onCompany={openCompany}
+              webAvailable={!ARTIFACT}
               onRunWeb={() => runRemote(view.question, "web", view.ctx)}
               onPin={pinCurrent}
               onResume={resume}
@@ -400,7 +453,12 @@ export default function App() {
               if (n) sendToAgent(n);
             }}
             onRemove={(id) => setNotes((ns) => ns.filter((n) => n.id !== id))}
-            onExport={() => {
+            onExport={async () => {
+              if (ARTIFACT) {
+                const downloads = await getDownloads();
+                await downloads?.save({ filename: "batch-signal-notes.md", data: notesMarkdown(notes, atlas.batch) }).catch(() => {});
+                return;
+              }
               const blob = new Blob([notesMarkdown(notes, atlas.batch)], { type: "text/markdown" });
               const a = document.createElement("a");
               a.href = URL.createObjectURL(blob);

@@ -53,6 +53,14 @@ With no keys, the tour, map, dataset answers and notes all work; live questions 
 
 `ASK_LIMIT_PER_HOUR` (default 30) and `SPEAK_LIMIT_PER_HOUR` (default 60) cap spend per visitor.
 
+## Claude artifact edition
+
+```sh
+npm run artifact   # -> dist-artifact/batch-signal.html, one self-contained page
+```
+
+Publish that file as a Claude artifact with the `sample` and `downloads` capabilities. The tour, map, instant answers and notes work for every viewer. Live questions go to the viewer's own Claude plan (they approve the first one), with the snapshot as Claude's only tool and the same card checks as the server. There is no web search, microphone or recorded narration in this edition; "hand off" copies an agent brief.
+
 ## Deploy
 
 One container serves the app and the API:

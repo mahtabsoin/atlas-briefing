@@ -56,6 +56,12 @@ describe("router", () => {
     expect(route(atlas, "What do analysts think about agents?", overview)).toEqual({ kind: "remote", tier: "official" });
   });
 
+  it("sends open questions to Claude even when they name a company or group", () => {
+    expect(route(atlas, "Compare the approaches in Defense", overview)).toEqual({ kind: "remote", tier: "official" });
+    expect(route(atlas, "Compare Edgerun with similar companies", overview)).toEqual({ kind: "remote", tier: "official" });
+    expect(route(atlas, "Edgerun", overview)).toEqual({ kind: "company", slug: "edgerun" });
+  });
+
   it("changes suggestions with what's on screen", () => {
     expect(suggestions(atlas, overview)[0]).toMatch(/groups/);
     expect(suggestions(atlas, inDefense)[0]).toContain("Defense");

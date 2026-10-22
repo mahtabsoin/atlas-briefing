@@ -2,8 +2,9 @@
 // validated Card. The model can only cite URLs this request actually retrieved.
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { CardSchema, type AskEvent, type Card } from "../shared/card";
+import { CardSchema, type AskEvent } from "../shared/card";
 import { bySlug, companyBrief, searchCompanies } from "../shared/dataset";
+import { normalizeUrl, sanitizeCard } from "../shared/sanitize";
 import { ycProfileUrl, type Atlas } from "../shared/types";
 import { exaSearch, hostOf, OFFICIAL_DOMAINS, PRESS_ALLOWLIST, type SearchHit } from "./search";
 
@@ -104,44 +105,13 @@ function tools(atlas: Atlas, input: AskInput, deps: AskDeps): Anthropic.Beta.Mes
   return list;
 }
 
-const normalize = (url: string) => {
-  try {
-    const u = new URL(url);
-    return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/$/, "")}`;
-  } catch {
-    return url;
-  }
-};
-
-/** Drop anything the model could not have seen or that points outside the snapshot. */
-export function sanitizeCard(raw: unknown, atlas: Atlas, seen: Set<string>, maxTier: AskInput["tier"]): { card?: Card; error?: string } {
-  const parsed = CardSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
-  const card = parsed.data;
-  const known = new Set(atlas.companies.map((c) => c.slug));
-  const keep = card.sources.map((s) => seen.has(normalize(s.url)));
-  const remap = new Map<number, number>();
-  card.sources.forEach((_, i) => keep[i] && remap.set(i, remap.size));
-  card.sources = card.sources.filter((_, i) => keep[i]);
-  card.blocks = card.blocks.map((b) => {
-    if (b.type === "companies") return { ...b, items: b.items.filter((x) => known.has(x.slug)) };
-    if (b.type === "bars") return { ...b, items: b.items.map((x) => (x.slug && !known.has(x.slug) ? { ...x, slug: undefined } : x)) };
-    if (b.type === "facts") return { ...b, items: b.items.map((x) => (x.source === undefined ? x : { ...x, source: remap.get(x.source) })) };
-    return b;
-  });
-  card.highlight = card.highlight.filter((s) => known.has(s));
-  if (card.tier === "web" && maxTier !== "web") card.tier = "official";
-  if (card.tier === "tour") card.tier = "dataset";
-  return { card };
-}
-
 export async function* answer(input: AskInput, deps: AskDeps): AsyncGenerator<AskEvent> {
   const { atlas } = deps;
   const seen = new Set<string>();
   // Official records from the snapshot are always citable.
   for (const c of atlas.companies) {
-    seen.add(normalize(ycProfileUrl(c.slug)));
-    if (c.website) seen.add(normalize(c.website));
+    seen.add(normalizeUrl(ycProfileUrl(c.slug)));
+    if (c.website) seen.add(normalizeUrl(c.website));
   }
   let searches = 0;
   let cardRetries = 0;
@@ -181,9 +151,9 @@ export async function* answer(input: AskInput, deps: AskDeps): AsyncGenerator<As
         const arg = block.input as { url?: string; query?: string };
         yield { type: "step", label: block.name === "web_fetch" ? `Reading ${hostOf(arg.url ?? "") ?? arg.url}` : `Searching: ${arg.query}` };
       } else if (block.type === "web_fetch_tool_result" && block.content.type === "web_fetch_result") {
-        seen.add(normalize(block.content.url));
+        seen.add(normalizeUrl(block.content.url));
       } else if (block.type === "web_search_tool_result" && Array.isArray(block.content)) {
-        for (const r of block.content) seen.add(normalize(r.url));
+        for (const r of block.content) seen.add(normalizeUrl(r.url));
       }
     }
 
@@ -241,7 +211,7 @@ export async function* answer(input: AskInput, deps: AskDeps): AsyncGenerator<As
           const company = input.context.company ? bySlug(atlas, input.context.company) : undefined;
           const host = hostOf(company?.website ?? null);
           const hits: SearchHit[] = await exaSearch(query, [...OFFICIAL_DOMAINS, ...PRESS_ALLOWLIST, ...(host ? [host] : [])], deps.exaKey, deps.fetchImpl);
-          hits.forEach((h) => seen.add(normalize(h.url)));
+          hits.forEach((h) => seen.add(normalizeUrl(h.url)));
           results.push({ type: "tool_result", tool_use_id: call.id, content: JSON.stringify(hits) });
         } catch (err) {
           results.push({ type: "tool_result", tool_use_id: call.id, is_error: true, content: (err as Error).message });

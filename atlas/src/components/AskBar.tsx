@@ -8,6 +8,7 @@ type Props = {
   activeTier: keyof typeof TIER_INFO | null;
   listening: boolean;
   canListen: boolean;
+  showMic: boolean;
   onChange: (v: string) => void;
   onSubmit: () => void;
   onChip: (text: string) => void;
@@ -17,7 +18,7 @@ type Props = {
 const TIER_ORDER = ["tour", "dataset", "official", "web", "agent"] as const;
 
 export const AskBar = forwardRef<HTMLInputElement, Props>(function AskBar(
-  { value, placeholder, chips, activeTier, listening, canListen, onChange, onSubmit, onChip, onMic },
+  { value, placeholder, chips, activeTier, listening, canListen, showMic, onChange, onSubmit, onChip, onMic },
   ref,
 ) {
   return (
@@ -29,6 +30,7 @@ export const AskBar = forwardRef<HTMLInputElement, Props>(function AskBar(
       }}
     >
       <div className="ask-row">
+        {showMic && (
         <button
           type="button"
           className={`round mic ${listening ? "on" : ""}`}
@@ -42,6 +44,7 @@ export const AskBar = forwardRef<HTMLInputElement, Props>(function AskBar(
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
         </button>
+        )}
         <label htmlFor="ask" className="sr-only">
           Ask a question
         </label>

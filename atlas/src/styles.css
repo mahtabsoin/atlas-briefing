@@ -13,6 +13,23 @@
   --ev: rgba(31, 79, 255, 0.12);
   color-scheme: light;
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --panel2: #1c2027;
+    --ink: #eef0f3;
+    --ink2: #cdd2d9;
+    --muted: #9aa1ab;
+    --line: #262a31;
+    --accent: #86a4ff;
+    --accent-ink: #0b0d10;
+    --dot: #3a414b;
+    --dot-mid: #a7aeb8;
+    --ev: rgba(134, 164, 255, 0.2);
+    color-scheme: dark;
+  }
+}
 :root[data-theme="dark"] {
   --bg: #0b0d10;
   --panel: #14171c;

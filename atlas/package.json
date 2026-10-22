@@ -14,7 +14,8 @@
     "test": "npm run atlas && vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "classify": "tsx scripts/classify.ts",
-    "voice": "tsx scripts/render-voice.ts"
+    "voice": "tsx scripts/render-voice.ts",
+    "artifact": "npm run atlas && tsx scripts/pack-artifact.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

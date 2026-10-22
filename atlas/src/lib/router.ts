@@ -47,6 +47,9 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
   if (/\b(ungrouped|grey|gray|outside the (eight |8 )?groups|other companies)\b/.test(s)) return { kind: "card", card: ungroupedCard(atlas) };
   if (/how (were|are) (the )?groups|method|classif/.test(s)) return { kind: "card", card: methodCard(atlas) };
 
+  // Open questions go to Claude even when they mention a company or group by name
+  if (/^(compare|summari[sz]e|explain|why|how|what|which|who|tell me|describe)\b/.test(s)) return { kind: "remote", tier: "official" };
+
   // A group or company named outright means "take me there"
   const company = findCompanyInText(atlas, s);
   const group = findGroupInText(atlas, s);
@@ -60,14 +63,14 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
 }
 
 /** Suggestions follow what's on screen. */
-export function suggestions(atlas: Atlas, ctx: Context): string[] {
+export function suggestions(atlas: Atlas, ctx: Context, web = true): string[] {
   if (ctx.company) {
     const name = atlas.companies.find((c) => c.slug === ctx.company)!.name;
-    return [`What has ${name} raised?`, `Add ${name} to notes`, `Hand off: research ${name}`];
+    return [web ? `What has ${name} raised?` : `Compare ${name} with similar companies`, `Add ${name} to notes`, `Hand off: research ${name}`];
   }
   if (ctx.group !== null) {
     const g = atlas.groups[ctx.group];
-    return [`Largest teams in ${g.short}`, "Which are outside San Francisco?", `Search news on ${g.short}`];
+    return [`Largest teams in ${g.short}`, "Which are outside San Francisco?", web ? `Search news on ${g.short}` : `Compare the approaches in ${g.short}`];
   }
   return ["Which groups have the biggest teams?", "Where are these companies based?", "Show the ungrouped companies"];
 }
