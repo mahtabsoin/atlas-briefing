@@ -1,14 +1,13 @@
 // Which edition this bundle is, and typed access to the Claude artifact runtime.
 // Every capability may be absent; callers design for null.
 export const ARTIFACT = import.meta.env.VITE_TARGET === "artifact";
-/** The published artifact's own address, so background research can write back to it. */
+/** The published artifact's own address, so research briefs can point back to it. */
 export const ARTIFACT_URL: string = import.meta.env.VITE_ARTIFACT_URL ?? "";
 
 type Sample = ((input: string, options?: Record<string, unknown>) => Promise<{ text: string }>) & {
   json: <T = unknown>(input: string, options?: Record<string, unknown>) => Promise<T>;
 };
 type Downloads = { save(req: { filename: string; data: string }): Promise<{ status: string }> };
-type Mcp = { callTool(server: string, tool: string, input?: unknown): Promise<{ payload?: unknown }> };
 type User = { id(): Promise<string | null> };
 type Snap = { id: string; exists: boolean; data(): Record<string, unknown> | undefined };
 type QuerySnap = { docs: Snap[] };
@@ -32,7 +31,6 @@ async function use<T>(name: string): Promise<T | null> {
 
 export const getSample = () => use<Sample>("sample");
 export const getDownloads = () => use<Downloads>("downloads");
-export const getMcp = () => use<Mcp>("mcp");
 export const getDb = () => use<Db>("db");
 export async function getUserId(): Promise<string | null> {
   const user = await use<User>("user");
@@ -43,4 +41,4 @@ export async function getUserId(): Promise<string | null> {
   }
 }
 
-export type { Db, Mcp, Sample };
+export type { Db, Sample };

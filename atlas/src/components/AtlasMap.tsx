@@ -8,7 +8,10 @@ type Props = {
   selected: string | null;
   /** When set, only these companies are lit. */
   highlight: Set<string> | null;
+  /** Large, centre-stage version (overview) vs the side version. */
+  big?: boolean;
   onCompany: (slug: string) => void;
+  onGroup: (group: number) => void;
 };
 
 const ZOOM = 1.6;
@@ -24,10 +27,21 @@ function camera(atlas: Atlas, focus: number | null): string {
 }
 
 /** A compact orientation map: where you are in the batch, at a glance. */
-export const AtlasMap = memo(function AtlasMap({ atlas, focus, selected, highlight, onCompany }: Props) {
+export const AtlasMap = memo(function AtlasMap({ atlas, focus, selected, highlight, big, onCompany, onGroup }: Props) {
   return (
-    <div className="map" aria-label="Map of the batch">
+    <div className={`map ${big ? "big" : ""}`} aria-label="Map of the batch: one dot per company">
       <div className="cam" style={{ transform: camera(atlas, highlight ? null : focus) }}>
+        {atlas.groups.map((g, i) => (
+          <button
+            key={g.id}
+            className={`glabel ${highlight ? "off" : focus === null ? "" : focus === i ? "on" : "off"}`}
+            style={{ left: `${g.center[0]}%`, top: `${Math.max(4, g.center[1] - 13)}%` }}
+            onClick={() => onGroup(i)}
+          >
+            {g.short}
+            <span>{g.count}</span>
+          </button>
+        ))}
         {atlas.companies.map((c) => {
           let cls: string;
           if (c.slug === selected) cls = "sel";
@@ -46,7 +60,6 @@ export const AtlasMap = memo(function AtlasMap({ atlas, focus, selected, highlig
           );
         })}
       </div>
-      <span className="map-note">{highlight ? `${highlight.size} highlighted` : "1 dot = 1 company"}</span>
     </div>
   );
 });

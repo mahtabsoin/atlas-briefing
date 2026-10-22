@@ -11,15 +11,16 @@ type Props = {
   highlight: Set<string> | null;
   onPage: (p: number) => void;
   onCompany: (slug: string) => void;
+  onGroup: (group: number) => void;
 };
 
 /** Where you are (map) and what's left (pages), side by side with the scene. */
-export function Rail({ atlas, open, page, seen, focus, selected, highlight, onPage, onCompany }: Props) {
+export function Rail({ atlas, open, page, seen, focus, selected, highlight, onPage, onCompany, onGroup }: Props) {
   const pages = ["Overview", ...atlas.groups.map((g) => g.name)];
   const counts = [atlas.companies.length, ...atlas.groups.map((g) => g.count)];
   return (
     <aside className={`rail ${open ? "open" : ""}`} aria-label="Map and pages">
-      <AtlasMap atlas={atlas} focus={focus} selected={selected} highlight={highlight} onCompany={onCompany} />
+      {(page !== 0 || open) && <AtlasMap atlas={atlas} focus={focus} selected={selected} highlight={highlight} onCompany={onCompany} onGroup={onGroup} />}
       <nav className="chapters" aria-label="Pages">
         {pages.map((name, i) => (
           <button key={name} className={`chapter ${page === i ? "on" : ""} ${seen.has(i) ? "seen" : ""}`} onClick={() => onPage(i)} aria-current={page === i ? "page" : undefined}>

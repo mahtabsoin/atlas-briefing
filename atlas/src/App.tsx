@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import atlasJson from "../shared/atlas.generated.json";
-import { bySlug, companyBrief } from "../shared/dataset";
 import { ycProfileUrl, type Atlas } from "../shared/types";
 import { Dock } from "./components/Dock";
 import { NotesDrawer } from "./components/NotesDrawer";
 import { Rail } from "./components/Rail";
 import { AnswerScene, CompanyScene, GroupScene, OverviewScene, type AnswerState } from "./components/Scene";
 import { ask, getHealth, handoff } from "./lib/api";
-import { ARTIFACT, getDb, getDownloads, getMcp, getSample, getUserId, type Sample } from "./lib/env";
-import { agentBrief, artifactStore, browserStore, newNote, notesMarkdown, type Note, type NotesStore } from "./lib/notes";
-import { startResearch } from "./lib/research";
+import { ARTIFACT, ARTIFACT_URL, getDb, getDownloads, getSample, getUserId, type Sample } from "./lib/env";
+import { artifactStore, browserStore, newNote, notesMarkdown, type Note, type NotesStore } from "./lib/notes";
+import { combinedBrief } from "./lib/research";
 import { route, suggestions, type Context } from "./lib/router";
 import { askClaude } from "./lib/sampleAsk";
 import { canListen, listen } from "./lib/voice";
@@ -38,9 +37,8 @@ export default function App() {
   const [dark, setDark] = useState(readMode);
   const [notes, setNotes] = useState<Note[]>([]);
   const [store, setStore] = useState<NotesStore | null>(null);
-  const [owner, setOwner] = useState<string | null>(null);
   const [canAnswer, setCanAnswer] = useState(false);
-  const [canResearch, setCanResearch] = useState(false);
+  const [canHandoff, setCanHandoff] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -64,18 +62,16 @@ export default function App() {
       if (!ARTIFACT) {
         const h = await getHealth();
         setCanAnswer(h.answers);
-        setCanResearch(h.handoff);
+        setCanHandoff(h.handoff);
         const s = browserStore();
         setStore(s);
         off = s.subscribe(setNotes);
         return;
       }
-      const [sample, db, uid, mcp] = await Promise.all([getSample(), getDb(), getUserId(), getMcp()]);
+      const [sample, db, uid] = await Promise.all([getSample(), getDb(), getUserId()]);
       sampleRef.current = sample;
       setCanAnswer(!!sample);
-      setOwner(uid);
       const s = db && uid ? artifactStore(db, uid) : browserStore();
-      setCanResearch(!!mcp && s.kind === "artifact");
       setStore(s);
       off = s.subscribe(setNotes);
     })();
@@ -145,46 +141,38 @@ export default function App() {
     flash("Saved to notes");
   };
 
-  const contextFor = (note: Note) => {
-    const c = note.subject ? bySlug(atlas, note.subject) : undefined;
-    return c ? JSON.stringify(companyBrief(c, atlas)) : "";
+  const copyBrief = async (list: Note[]) => {
+    try {
+      await navigator.clipboard.writeText(combinedBrief(list, atlas.batch, ARTIFACT_URL));
+      list.forEach((n) => saveNote({ ...n, status: "copied", error: undefined }));
+      flash("Brief copied. Paste it into any Claude chat.");
+    } catch {
+      flash("Couldn't copy in this view. Use Export instead.");
+    }
   };
 
-  /** Send a note to Claude for background research; never asks the viewer to copy anything if it can avoid it. */
-  const research = async (note: Note) => {
-    if (ARTIFACT && canResearch && owner) {
-      saveNote({ ...note, status: "researching", error: undefined });
-      const result = await startResearch(note, owner, atlas.batch, contextFor(note));
-      if (result.ok) {
-        saveNote({ ...note, status: "researching", sessionUrl: result.sessionUrl, error: undefined });
-        flash("Claude is researching this in the background. The finding will appear in Notes.");
-      } else {
-        saveNote({ ...note, status: "failed", error: result.reason });
-        flash(result.reason);
-      }
-      return;
+  /** Send every reviewed note at once: to the atlas queue Claude collects, else a webhook, else a copied brief. */
+  const sendNotes = async () => {
+    const drafts = notes.filter((n) => n.status === "open" || n.status === "failed");
+    if (!drafts.length) return;
+    if (store?.kind === "artifact") {
+      drafts.forEach((n) => saveNote({ ...n, status: "queued", error: undefined }));
+      return flash(`${drafts.length} sent. Claude picks them up when you ask it to research your notes.`);
     }
-    if (!ARTIFACT && canResearch) {
-      const sent = await handoff(agentBrief(note, atlas.batch), ctx, note.sources);
+    if (!ARTIFACT && canHandoff) {
+      const sent = await handoff(combinedBrief(drafts, atlas.batch, ""), ctx, drafts.flatMap((n) => n.sources));
       if (sent === "sent") {
-        saveNote({ ...note, status: "sent" });
+        drafts.forEach((n) => saveNote({ ...n, status: "sent" }));
         return flash("Sent to your agent");
       }
     }
-    try {
-      await navigator.clipboard.writeText(agentBrief(note, atlas.batch));
-      saveNote({ ...note, status: "copied" });
-      flash("Brief copied. Paste it into Claude to research it.");
-    } catch {
-      saveNote({ ...note, status: "failed", error: "Couldn't copy the brief in this view. Use Export instead." });
-    }
+    copyBrief(drafts);
   };
 
   const researchQuestion = (question: string, context: Context) => {
-    const note = newNote(question, "Research", context.company ? [ycProfileUrl(context.company)] : [], context.company);
-    saveNote(note);
-    research(note);
+    saveNote(newNote(question, "Needs web research", context.company ? [ycProfileUrl(context.company)] : [], context.company));
     setDrawer(true);
+    flash("Added to notes. Add any instructions, then send.");
   };
 
   const runAnswer = async (question: string, context: Context) => {
@@ -225,7 +213,8 @@ export default function App() {
       case "pin":
         return pin();
       case "handoff":
-        return research(noteFromView());
+        saveNote(noteFromView());
+        return setDrawer(true);
       case "theme":
         return setDark(action.dark ?? !dark);
       case "card":
@@ -288,7 +277,6 @@ export default function App() {
       ? `Ask about ${atlas.groups[ctx.group].name.toLowerCase()}…`
       : "Ask anything about the batch…";
   const nextLabel = view.kind === "page" ? (page < LAST ? PAGES[page + 1] : null) : page < LAST ? PAGES[page + 1] : null;
-  const pending = notes.filter((n) => n.status === "researching").length;
 
   return (
     <div className="app">
@@ -311,18 +299,31 @@ export default function App() {
         </nav>
         <div className="top-actions">
           <button className="btn ghost map-toggle" onClick={() => setRailOpen(!railOpen)} aria-pressed={railOpen}>Map</button>
-          <button className="btn" onClick={() => setDark(!dark)} aria-label={`Switch to ${dark ? "light" : "dark"} mode`}>
-            {dark ? "Light" : "Dark"}
+          <button className="btn icon" onClick={() => setDark(!dark)} aria-label={`Switch to ${dark ? "light" : "dark"} mode`} title={dark ? "Light mode" : "Dark mode"}>
+            {dark ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" />
+              </svg>
+            )}
           </button>
-          <button className="btn" onClick={() => setDrawer(!drawer)} aria-expanded={drawer}>
-            Notes {notes.length > 0 && <span className="badge num">{pending ? `${pending}…` : notes.length}</span>}
+          <button className="btn" onClick={() => setDrawer(!drawer)} aria-expanded={drawer} title="Notes">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 3h9l4 4v14H6z" />
+              <path d="M14 3v5h5M9 13h7M9 17h5" />
+            </svg>
+            Notes {notes.length > 0 && <span className="badge num">{notes.length}</span>}
           </button>
         </div>
       </header>
 
       <main className="stage">
         <section className="scene" aria-live="polite">
-          {view.kind === "page" && page === 0 && <OverviewScene atlas={atlas} onGroup={(g) => goPage(g + 1)} onNote={pin} />}
+          {view.kind === "page" && page === 0 && <OverviewScene atlas={atlas} onGroup={(g) => goPage(g + 1)} onCompany={openCompany} onNote={pin} />}
           {view.kind === "page" && page > 0 && <GroupScene atlas={atlas} group={page - 1} onCompany={openCompany} onNote={pin} />}
           {view.kind === "company" && <CompanyScene atlas={atlas} slug={view.slug} onCompany={openCompany} onNote={pin} />}
           {view.kind === "answer" && (
@@ -339,6 +340,7 @@ export default function App() {
           highlight={highlight}
           onPage={goPage}
           onCompany={openCompany}
+          onGroup={(g) => goPage(g + 1)}
         />
       </main>
 
@@ -363,11 +365,11 @@ export default function App() {
         <NotesDrawer
           atlas={atlas}
           notes={notes}
-          canResearch={canResearch}
-          storedIn={store?.kind ?? "browser"}
+          queue={store?.kind === "artifact"}
           onClose={() => setDrawer(false)}
-          onResearch={research}
-          onResearchAll={() => notes.filter((n) => n.status === "open" || n.status === "failed").forEach(research)}
+          onComment={(n, comment) => saveNote({ ...n, comment })}
+          onSend={sendNotes}
+          onCopy={copyBrief}
           onRemove={(id) => store?.remove(id)}
           onCompany={(slug) => {
             setDrawer(false);

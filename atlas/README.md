@@ -58,13 +58,13 @@ With no keys, the tour, map, dataset answers and notes all work; live questions 
 ARTIFACT_URL=<the artifact's claude.ai link> npm run artifact   # -> dist-artifact/batch-signal.html
 ```
 
-Publish that file as a Claude artifact with capabilities `sample`, `downloads`, `db`, `user` and `mcp` (`Claude Code Remote`: `list_environments`, `create_session`). On first publish you won't know the link yet: publish, then rebuild with `ARTIFACT_URL` set and republish to the same link.
+Publish that file as a Claude artifact with capabilities `sample`, `downloads`, `db` and `user`. On first publish you won't know the link yet: publish, then rebuild with `ARTIFACT_URL` set and republish to the same link.
 
-- **One screen.** Page through the briefing with ← → or the dock; the map and page list sit beside the scene.
+- **One screen.** Page through the briefing with ← → or the dock. The map is centre stage on the overview and moves to the side on other pages.
 - **Questions** run on the viewer's own Claude plan, with the snapshot as Claude's only tool.
-- **Research on the web** starts a background Claude Code session through the viewer's Claude Code connector. It searches, then writes its finding back into this atlas's store; the notes panel shows it when it lands.
-- **Notes** are saved with the atlas (per viewer), exportable as Markdown.
-- Using the store and connectors keeps the artifact inside the owner's organization. For a public share, publish with only `sample` and `downloads`: research then falls back to copying a brief.
+- **Notes** are saved with the atlas, per viewer. Review them, add your own instructions, then **Send to Claude**.
+- **Research.** Sent notes wait in the atlas. In Claude Code, say "Research my Batch Signal notes": the `batch-signal-research` skill (`.claude/skills/` at the repo root) collects them, searches the web and writes findings back, which appear in Notes. Pages can't start Claude sessions themselves, so this one sentence is the hand-off.
+- Using the store keeps the artifact inside the owner's account or organization. Viewers without a store get a copied brief instead.
 
 ## Deploy
 
@@ -95,5 +95,5 @@ npm run build    # typecheck + production bundle
 ## Not yet
 
 - No accounts: notes live in the browser, and the rate limit is per IP and per process.
-- Background research is verified up to the write-back into the store; starting the session from the page has only run against a stand-in.
+- The research pickup skill has been checked for its database writes, not yet run end to end on a real queue.
 - Live answers have been tested against a scripted stand-in for the Claude API, not yet against the live API with real keys.

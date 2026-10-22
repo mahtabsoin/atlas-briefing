@@ -2,6 +2,7 @@
 import type { Card } from "../../shared/card";
 import { inGroup } from "../../shared/dataset";
 import { ycProfileUrl, type Atlas, type Company } from "../../shared/types";
+import { AtlasMap } from "./AtlasMap";
 import { CardView } from "./CardView";
 
 export type AnswerState = {
@@ -34,7 +35,7 @@ function NoteButton({ onNote }: { onNote: () => void }) {
   );
 }
 
-export function OverviewScene({ atlas, onGroup, onNote }: { atlas: Atlas; onGroup: (g: number) => void; onNote: () => void }) {
+export function OverviewScene({ atlas, onGroup, onCompany, onNote }: { atlas: Atlas; onGroup: (g: number) => void; onCompany: (s: string) => void; onNote: () => void }) {
   const grouped = atlas.companies.filter((c) => c.group >= 0).length;
   return (
     <div className="scene-body" key="overview">
@@ -49,14 +50,16 @@ export function OverviewScene({ atlas, onGroup, onNote }: { atlas: Atlas; onGrou
         <div className="stat"><b>{grouped}</b><span>in {atlas.groups.length} groups</span></div>
         <div className="stat"><b>{atlas.companies.length - grouped}</b><span>ungrouped</span></div>
       </div>
-      <div className="tiles">
-        {atlas.groups.map((g, i) => (
-          <button key={g.id} className="tile" onClick={() => onGroup(i)}>
-            <span className="n num">{g.count} companies</span>
-            <b>{g.name}</b>
-            <small>{g.rubric}</small>
-          </button>
-        ))}
+      <div className="overview-grid">
+        <AtlasMap atlas={atlas} focus={null} selected={null} highlight={null} big onCompany={onCompany} onGroup={onGroup} />
+        <div className="glist">
+          {atlas.groups.map((g, i) => (
+            <button key={g.id} className="grow" onClick={() => onGroup(i)}>
+              <span className="n num">{g.count}</span>
+              <span className="gh">{g.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
       <p className="fine">
         Groups are an editorial read of each company's own YC one-liner. A company joins a group only when its one-liner contains a supporting phrase, highlighted on its page. Source:{" "}
@@ -170,8 +173,8 @@ export function AnswerScene({ atlas, answer, onCompany, onNote, onResearch }: An
       {answer.card && <CardView atlas={atlas} card={answer.card} onCompany={onCompany} />}
       {answer.status !== "running" && answer.canResearch && (
         <div className="box row" style={{ justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13.5 }}>{answer.card?.needsWeb ?? "The snapshot can't answer this. Claude can research it on the web in the background."}</span>
-          <button className="btn primary" onClick={onResearch}>Research on the web</button>
+          <span style={{ fontSize: 13.5 }}>{answer.card?.needsWeb ?? "The snapshot can't answer this."} Add it to your notes and Claude researches it on the web when you send them.</span>
+          <button className="btn primary" onClick={onResearch}>Add to research notes</button>
         </div>
       )}
     </div>

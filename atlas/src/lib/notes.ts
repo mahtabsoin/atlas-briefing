@@ -5,7 +5,7 @@ import type { Card } from "../../shared/card";
 import { CardSchema } from "../../shared/card";
 import type { Db } from "./env";
 
-export type NoteStatus = "open" | "researching" | "done" | "failed" | "copied" | "sent";
+export type NoteStatus = "open" | "queued" | "researching" | "done" | "failed" | "copied" | "sent";
 
 export type Note = {
   id: string;
@@ -14,8 +14,9 @@ export type Note = {
   sources: string[];
   /** Company or group the note was taken on, for research context. */
   subject: string | null;
+  /** The viewer's own instructions or context for Claude. */
+  comment?: string;
   status: NoteStatus;
-  sessionUrl?: string;
   error?: string;
   finding?: Card;
   createdAt: string;
@@ -128,6 +129,7 @@ export function agentBrief(note: Note, batch: string): string {
     "",
     note.text,
     "",
+    note.comment ? `My notes: ${note.comment}\n` : "",
     "Rules: use official sources first (YC profile, company website and press releases, SEC filings), then reputable press with a named author and date. Cite every claim with a link. Say \"not stated\" where no source answers. No opinions. Under 150 words.",
     note.sources.length ? `\nStarting points:\n${note.sources.map((s) => `- ${s}`).join("\n")}` : "",
   ].join("\n");
@@ -137,6 +139,7 @@ export function notesMarkdown(notes: Note[], batch: string): string {
   const lines = [`# Batch Signal notes · YC ${batch}`, ""];
   for (const n of notes) {
     lines.push(`- ${n.text}`, `  - ${n.meta} · ${n.createdAt.slice(0, 10)}`);
+    if (n.comment) lines.push(`  - My notes: ${n.comment}`);
     if (n.finding) {
       lines.push(`  - Finding: ${n.finding.summary}`);
       for (const s of n.finding.sources) lines.push(`    - ${s.title}: ${s.url}`);

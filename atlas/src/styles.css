@@ -73,7 +73,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font: 600 11px/18px var(--display); text-align: center; }
 
 .stage {
-  min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px;
+  min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px;
   padding: 16px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
 }
 
@@ -134,7 +134,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 
 /* Rail */
 .rail { min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-.map { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 11; background: var(--panel); border-radius: 12px; overflow: hidden; flex: none; }
+.map { position: relative; width: 100%; max-width: 100%; aspect-ratio: 4 / 3; background: var(--panel); border-radius: 12px; overflow: hidden; flex: none; }
 .cam { position: absolute; inset: 0; transform-origin: 50% 50%; transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .dot { position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--dot); transition: opacity 0.5s, background-color 0.5s, transform 0.2s; }
 .dot:hover { transform: scale(1.8); }
@@ -142,7 +142,6 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .dot.dim { opacity: 0.4; }
 .dot.hi { background: var(--accent); }
 .dot.sel { background: var(--accent); transform: scale(2); box-shadow: 0 0 0 2px var(--panel); }
-.map-note { position: absolute; left: 10px; bottom: 8px; font: 500 10px var(--mono); color: var(--muted); pointer-events: none; }
 .chapters { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .chapter {
   display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; text-align: left;
@@ -206,3 +205,31 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
   }
 }
+
+/* Map labels: cluster names stay readable at both sizes */
+.glabel {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: transparent; border: 0; padding: 3px 5px; cursor: pointer;
+  font: 600 10px/1 var(--mono); letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink2); transition: opacity 0.5s, color 0.5s;
+  z-index: 2; border-radius: 4px; background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+.glabel span { margin-left: 4px; color: var(--muted); font-weight: 500; }
+.glabel.off { opacity: 0.35; }
+.glabel.on { color: var(--accent); }
+.glabel:hover { color: var(--accent); }
+.map.big { aspect-ratio: 16 / 11; }
+.map.big .dot { width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+.map.big .glabel { font-size: 11px; }
+.overview-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr); gap: 20px; align-items: start; }
+.glist { display: flex; flex-direction: column; }
+.grow { display: flex; align-items: baseline; gap: 12px; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 9px 0; cursor: pointer; font-size: 14.5px; }
+.grow .n { font: 500 12px var(--mono); color: var(--muted); width: 26px; flex: none; }
+.grow:hover .gh { color: var(--accent); }
+@media (max-width: 720px) { .overview-grid { grid-template-columns: minmax(0, 1fr); } }
+.btn.icon { width: 36px; padding: 0; justify-content: center; }
+.label.section { padding: 14px 0 2px; }
+.comment {
+  width: 100%; resize: vertical; min-height: 44px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); font: 13.5px/1.45 var(--display);
+}
+.comment:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.drawer-foot { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
