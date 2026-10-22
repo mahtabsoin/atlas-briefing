@@ -6,6 +6,12 @@ Point it at something with too many entries to read ("all 230 companies in YC Su
 
 ![Overview: every company as a dot, eight labelled groups](docs/screenshots/1-overview.png)
 
+## What it's good for
+
+Collections of 50 to 600 comparable things, listed by one official source, where each item describes itself and the reader wants the spread rather than one answer: accelerator batches, conference programmes, grant awards, bills in a session, trial registries, exhibitor lists, open-source ecosystems.
+
+Not for rankings, timelines, single deep subjects, live data, or anything without a source of record. [The fit guide](skills/atlas-briefing/references/fit-guide.md) has examples of both, the analysis an atlas answers instantly versus what goes to research, and how to choose sources. The skill checks requests against it before building.
+
 ## What the viewer gets
 
 | | |
@@ -74,7 +80,7 @@ node skills/atlas-briefing/scripts/build.mjs atlases/yc-s26/collection.json
 
 | Path | What |
 |---|---|
-| [`skills/atlas-briefing/`](skills/atlas-briefing/) | The skill: instructions, data format, builder, prebuilt player |
+| [`skills/atlas-briefing/`](skills/atlas-briefing/) | The skill: instructions, fit guide, data format, builder, prebuilt player |
 | [`atlases/yc-s26/`](atlases/yc-s26/) | The worked example |
 | [`player/`](player/) | Player source (React + Vite) for changing the page itself |
 | `docs/screenshots/` | The images above |

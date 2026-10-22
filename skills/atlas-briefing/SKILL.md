@@ -25,6 +25,8 @@ Before collecting anything, ask at most three short questions, each with a defau
 
 If the request already answers these, skip the questions and state your reading in one line instead. The atlas is only as good as this step: a vague collection makes vague groups.
 
+Check the request against `references/fit-guide.md`. If it isn't a good fit (no single source, under ~50 items, a ranking or timeline question), say so plainly and suggest the format that fits better before building anything.
+
 ### 2. Collect from the official source
 
 - Read the source with web fetch or search. Prefer the primary record over press and aggregators. Record the URL and today's date as `source.checked`.

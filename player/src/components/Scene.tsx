@@ -53,14 +53,25 @@ function Head({ title, label, onNote }: { title: string; label?: string; onNote:
 export function OverviewScene({ atlas, onGroup, onItem, onNote }: { atlas: Atlas; onGroup: (g: number) => void } & Nav) {
   return (
     <div className="scene-body fill overview" key="overview">
-      <Head title={atlas.title} onNote={onNote} />
-      <p className="lead">{atlas.overview}</p>
+      <div className="overview-side">
+        <Head title={atlas.title} onNote={onNote} />
+        <p className="lead">{atlas.overview}</p>
+        <nav className="toc" aria-label="Groups">
+          {atlas.groups.map((g, i) => (
+            <button key={g.id} onClick={() => onGroup(i)}>
+              <span className="k num">{String(i + 1).padStart(2, "0")}</span>
+              <span>{g.name}</span>
+              <span className="c num">{g.count}</span>
+            </button>
+          ))}
+        </nav>
+        <p className="fine">
+          Source: <a href={atlas.source.url} target="_blank" rel="noopener noreferrer">{atlas.source.name}</a>, {atlas.source.checked}.
+        </p>
+      </div>
       <div className="overview-map">
         <AtlasMap atlas={atlas} focus={null} selected={null} highlight={null} big onItem={onItem} onGroup={onGroup} />
       </div>
-      <p className="fine">
-        Source: <a href={atlas.source.url} target="_blank" rel="noopener noreferrer">{atlas.source.name}</a>, {atlas.source.checked}. Click a group to open it.
-      </p>
     </div>
   );
 }

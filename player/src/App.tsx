@@ -297,7 +297,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="stage">
+      <main className={`stage ${view.kind === "page" && page === 0 ? "solo" : ""}`}>
         <section className="scene" aria-live="polite" ref={sceneRef}>
           <div className="scene-scroll">
             <div className="fit">
