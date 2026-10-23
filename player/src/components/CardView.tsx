@@ -1,14 +1,14 @@
 import type { Block, Card } from "../../shared/card";
 import type { Atlas } from "../../shared/types";
 
-type Props = { atlas: Atlas; card: Card; onItem: (id: string) => void };
+type Props = { atlas: Atlas; card: Card; onItem: (id: string) => void; hideSummary?: boolean };
 
 /** Renders a Card from the fixed block kit. Nothing model-written is ever treated as HTML. */
-export function CardView({ atlas, card, onItem }: Props) {
+export function CardView({ atlas, card, onItem, hideSummary }: Props) {
   const lookup = (id: string) => atlas.items.find((it) => it.id === id);
   return (
     <>
-      <p className="summary">{card.summary}</p>
+      {!hideSummary && <p className="summary">{card.summary}</p>}
       {card.blocks.map((b, i) => (
         <BlockView key={i} block={b} card={card} lookup={lookup} onItem={onItem} />
       ))}

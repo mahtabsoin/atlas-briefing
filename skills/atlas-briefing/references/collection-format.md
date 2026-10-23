@@ -1,6 +1,6 @@
 # collection.json
 
-One JSON file describes an atlas. `scripts/build.mjs` validates it, lays out the map and inlines it into the player. A full real example: `atlases/yc-s26/collection.json` in the Atlas Briefing repository (230 companies).
+One JSON file describes an atlas. `scripts/build.mjs` validates it, lays out the map and inlines it into the player. A full real example: `atlases/yc-2026/collection.json` in the Atlas Briefing repository (788 companies in four batches, with a batch filter).
 
 ## Minimal example
 
@@ -54,6 +54,7 @@ Items are cut to one for space; the counts in `overview` and `narration` assume 
 | `method` | yes | One sentence on how items were grouped. Shown when the viewer asks. |
 | `overview` | yes | One or two sentences. Every number in it must be a real count: total, grouped, ungrouped, number of groups, or a group's size (years are ignored). |
 | `facts` | no | Declares item facts. `type`: `number` (ranked, medians), `place` (counted by its first comma segment, so "San Francisco, CA" counts as "San Francisco"), `text` (shown only). `unit` is optional. The first `number` and first `place` fact drive the instant answers. |
+| `filter` | no | `{ "key": "<a declared text fact>", "values": [...] }`, values in display order (e.g. batches oldest first). The viewer can switch the whole atlas to one value; group pages show how each group splits across them. Every item must carry one of the values. |
 | `groups[]` | yes | `id`, `name`, `short` (map label, 18 characters or fewer), `rubric`, `narration`. Optional `center: [x, y]` in percent (5 to 95) to place the cluster by hand; otherwise clusters are spaced around the map. |
 | `items[]` | yes | See below. |
 
@@ -75,6 +76,7 @@ Items are cut to one for space; the counts in `overview` and `narration` assume 
 ## Checks the builder runs
 
 Errors stop the build:
+- a `filter` that names an undeclared or non-text fact, or an item whose value isn't in `filter.values`
 - missing required fields, bad URLs, duplicate ids or group ids
 - an item in an unknown group
 - `evidence` not found in the item's `summary`
@@ -82,8 +84,8 @@ Errors stop the build:
 - an `overview` number that matches no count in the data
 - a fact whose type doesn't match its declaration
 
-Warnings don't: more than 10 groups, a long `short` label, an empty group, more than 600 items, undeclared facts.
+Warnings don't: more than 12 groups, a long `short` label, an empty group, more than 600 items, undeclared facts.
 
 ## Sizing
 
-The player is built for 50 to 600 items and 4 to 8 groups. Fewer than about 50 doesn't need a map; past 600 the dots crowd and the paging in each group gets long. For bigger collections, split into several atlases (one per track, region or year).
+The player is built for 50 to 600 items and 4 to 8 groups. Fewer than about 50 doesn't need a map. Past 600, add a `filter` (by batch, year, track) and up to 12 groups: the YC 2026 example holds 788 that way. Past about 1,200, split into several atlases.

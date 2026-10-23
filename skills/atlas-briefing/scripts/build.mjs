@@ -43,7 +43,7 @@ export function buildAtlas(collection) {
 
   const rawGroups = Array.isArray(c.groups) ? c.groups : [];
   need(rawGroups.length > 0, "at least one group is required");
-  if (rawGroups.length > 10) warnings.push(`${rawGroups.length} groups is a lot for one screen; 4 to 8 reads best`);
+  if (rawGroups.length > 12) warnings.push(`${rawGroups.length} groups is a lot for one screen; 4 to 12 reads best`);
   const groupIndex = new Map();
   rawGroups.forEach((g, i) => {
     need(nonEmpty(g.id) && nonEmpty(g.name) && nonEmpty(g.short) && nonEmpty(g.rubric) && nonEmpty(g.narration), `group ${i}: id, name, short, rubric and narration are required`);
@@ -53,9 +53,18 @@ export function buildAtlas(collection) {
     groupIndex.set(g.id, i);
   });
 
+  // Optional filter: one declared text fact the viewer can narrow the whole atlas by (e.g. batch).
+  let filter = null;
+  if (c.filter != null) {
+    const spec = facts.find((f) => f.key === c.filter.key);
+    need(spec && spec.type === "text", `filter.key must name a declared text fact`);
+    need(Array.isArray(c.filter.values) && c.filter.values.length >= 2 && c.filter.values.every(nonEmpty), "filter.values must list at least two values, in display order");
+    if (spec) filter = { key: spec.key, label: spec.label, values: c.filter.values };
+  }
+
   const rawItems = Array.isArray(c.items) ? c.items : [];
   need(rawItems.length > 0, "items is empty");
-  if (rawItems.length > 600) warnings.push(`${rawItems.length} items: the map gets crowded past about 600`);
+  if (rawItems.length > (c.filter ? 1200 : 600)) warnings.push(`${rawItems.length} items: the map gets crowded past about ${c.filter ? "1,200 even with a filter" : "600; a filter (e.g. by year or batch) helps"}`);
   const ids = new Set();
   const items = rawItems.map((it, n) => {
     const where = `item ${it?.id ?? n}`;
@@ -111,6 +120,10 @@ export function buildAtlas(collection) {
     };
   });
 
+  if (filter) {
+    for (const it of items) need(filter.values.includes(it.facts[filter.key]), `item ${it.id}: ${filter.key} "${it.facts[filter.key]}" is not one of filter.values`);
+  }
+
   const groups = rawGroups.map((g, i) => {
     const members = items.filter((it) => it.group === i);
     if (!members.length) warnings.push(`group ${g.id} has no items`);
@@ -153,6 +166,7 @@ export function buildAtlas(collection) {
     method: c.method.trim(),
     overview: c.overview.trim(),
     facts: facts.map(({ key, label, type, unit }) => ({ key, label, type, ...(unit ? { unit } : {}) })),
+    ...(filter ? { filter } : {}),
     groups,
     items,
   };

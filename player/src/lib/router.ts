@@ -50,8 +50,9 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
     if (outside) return { kind: "card", card: outsideCard(atlas, subject, place, outside[1]) };
     if (/\b(where|based|located|locations?|cities|city|countries|country)\b/.test(s)) return { kind: "card", card: placeCard(atlas, subject, place) };
   }
+  if (/^(.+ )?by group$/.test(s) && num) return { kind: "card", card: rankCard(atlas, null, num) };
   if (/\b(ungrouped|grey|gray|other)\b/.test(s)) return { kind: "card", card: ungroupedCard(atlas) };
-  if (/how (were|are) (the )?groups|method|classif|grouped/.test(s)) return { kind: "card", card: methodCard(atlas) };
+  if (/how (were|are) (the )?groups|groups were drawn|method|classif|grouped/.test(s)) return { kind: "card", card: methodCard(atlas) };
 
   // Open questions go to Claude even when they name an item or group
   if (/^(compare|summari[sz]e|explain|why|how|what|which|who|tell me|describe|list)\b/.test(s)) return { kind: "ask" };
@@ -64,30 +65,38 @@ export function route(atlas: Atlas, input: string, ctx: Context): Action {
   return { kind: "ask" };
 }
 
-/** Suggestions follow what's on screen. */
-export function suggestions(atlas: Atlas, ctx: Context): string[] {
+/** Instant answers from the atlas itself, for what's on screen. Each label routes to a card. */
+export function quickFacts(atlas: Atlas, ctx: Context): { label: string; card: Card }[] {
+  if (ctx.item) return [];
   const num = factOf(atlas, "number");
   const place = factOf(atlas, "place");
+  const g = ctx.group !== null ? atlas.groups[ctx.group] : null;
+  const labels: string[] = [];
+  if (num) labels.push(g ? `Largest ${num.label.toLowerCase()}` : `${num.label} by group`);
+  if (place) labels.push("Where they're based");
+  if (!g) labels.push("Ungrouped", "How groups were drawn");
+  return labels.flatMap((label) => {
+    const a = route(atlas, label, ctx);
+    return a.kind === "card" ? [{ label: label.replace(/\?$/, ""), card: a.card }] : [];
+  });
+}
+
+/** Questions worth taking to Claude from here: comparisons and the outside world. */
+export function questions(atlas: Atlas, ctx: Context, scope: string | null): string[] {
+  const many = atlas.noun[1];
   if (ctx.item) {
     const name = atlas.items.find((it) => it.id === ctx.item)!.name;
-    return [`Compare ${name} with similar ${atlas.noun[1]}`, `Latest news on ${name}`];
+    return [`What's the latest on ${name}, from official sources first?`, `Compare ${name} with the closest ${many} in its group.`];
   }
   if (ctx.group !== null) {
     const g = atlas.groups[ctx.group];
-    const out: string[] = [];
-    if (num) out.push(`Largest ${num.label.toLowerCase()} in ${g.short}`);
-    out.push(`Compare the approaches in ${g.short}`);
-    if (place) {
-      const top = placeCounts(atlas, ctx.group, place.key)[0]?.[0];
-      if (top && top !== "Not listed") out.push(`Which are outside ${top}?`);
-    }
-    out.push(`Latest news on ${g.short}`);
+    const out = [`Compare the approaches in ${g.name.toLowerCase()}${scope ? ` (${scope})` : ""}.`, `What's the recent news on ${g.name.toLowerCase()} ${many}?`];
+    if (atlas.filter && !scope) out[0] = `How does ${g.name.toLowerCase()} change across the ${atlas.filter.label.toLowerCase()}es?`;
     return out;
   }
-  const out: string[] = [];
-  if (num) out.push(`Which groups have the largest ${num.label.toLowerCase()}?`);
-  if (place) out.push(`Where are these ${atlas.noun[1]} based?`);
-  out.push(`Show the ungrouped ${atlas.noun[1]}`);
+  const out = [`Summarize each group in two lines, with examples.`];
+  if (atlas.filter && !scope) out.push(`Which groups grow or shrink across the ${atlas.filter.label.toLowerCase()}es? Use the counts.`);
+  else out.push(`Find ${many} working on a topic I name.`);
   return out;
 }
 

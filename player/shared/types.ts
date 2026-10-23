@@ -48,6 +48,8 @@ export type Atlas = {
   method: string;
   overview: string;
   facts: FactSpec[];
+  /** A text fact the viewer can narrow everything by (e.g. batch), with its values in order. */
+  filter?: { key: string; label: string; values: string[] };
   groups: Group[];
   items: Item[];
 };

@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildAtlas, locate, renderPage } from "../../skills/atlas-briefing/scripts/build.mjs";
+import { scopeTo, spread } from "../shared/dataset";
 import { yc, ycCollection } from "./fixture";
 
 const atlas = yc();
 
-describe("YC example atlas", () => {
+describe("YC 2026 example atlas", () => {
   it("covers every company exactly once", () => {
     const ids = atlas.items.map((it) => it.id);
-    expect(ids.length).toBe(230);
-    expect(new Set(ids).size).toBe(230);
+    expect(ids.length).toBe(788);
+    expect(new Set(ids).size).toBe(788);
   });
 
   it("has a real supporting phrase wherever a placement claims one", () => {
@@ -17,7 +18,7 @@ describe("YC example atlas", () => {
       expect(it.summary.slice(a, b).trim().length, it.id).toBeGreaterThan(1);
       expect(it.group, it.id).toBeGreaterThanOrEqual(0);
     }
-    expect(atlas.items.filter((x) => x.group >= 0 && !x.evidence).length).toBe(9);
+    expect(atlas.items.filter((x) => x.group >= 0 && !x.evidence).length).toBe(1);
   });
 
   it("keeps group counts and narration in agreement", () => {
@@ -35,6 +36,28 @@ describe("YC example atlas", () => {
       expect(it.y, it.id).toBeGreaterThan(0);
       expect(it.y, it.id).toBeLessThan(100);
     }
+  });
+});
+
+describe("batch filter", () => {
+  it("splits every company into exactly one of the four batches", () => {
+    expect(atlas.filter?.values).toEqual(["Winter 2026", "Spring 2026", "Summer 2026", "Fall 2026"]);
+    const counts = atlas.filter!.values.map((v) => scopeTo(atlas, v).items.length);
+    expect(counts).toEqual([197, 193, 230, 168]);
+  });
+
+  it("recounts groups when scoped, and the spread adds up to the full count", () => {
+    const summer = scopeTo(atlas, "Summer 2026");
+    const sf = atlas.groups.findIndex((g) => g.id === "service-firms");
+    expect(summer.groups[sf].count).toBe(20);
+    expect(spread(atlas, sf).reduce((n, s) => n + s.count, 0)).toBe(atlas.groups[sf].count);
+    expect(scopeTo(atlas, null)).toBe(atlas);
+  });
+
+  it("rejects a filter value the collection doesn't declare", () => {
+    const c = ycCollection();
+    c.items[0].facts.batch = "Winter 2025";
+    expect(() => buildAtlas(c)).toThrow(/not one of filter.values/);
   });
 });
 
@@ -91,6 +114,6 @@ describe("builder checks", () => {
     c.items[0].description = "</script><script>alert(1)</script>";
     const html = renderPage('<title>Atlas Briefing</title><script type="application/json" id="atlas-data">/*ATLAS_DATA*/</script>', buildAtlas(c).atlas);
     expect(html).not.toContain("</script><script>alert");
-    expect(html).toContain("<title>YC Summer 2026</title>");
+    expect(html).toContain("<title>YC 2026</title>");
   });
 });

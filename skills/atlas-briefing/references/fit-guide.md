@@ -8,10 +8,10 @@ All five should hold:
 
 | Test | Why it matters |
 |---|---|
-| **A bounded collection** of 50 to 600 comparable things | Under ~50, a table or memo is quicker. Over ~600, the map crowds; split it. |
+| **A bounded collection** of 50 to 600 comparable things | Under ~50, a table or memo is quicker. Up to ~1,200 works with a filter (by batch, year or track); beyond that, split it. |
 | **One official source lists them all** | The atlas is a snapshot of a record. No record, no trustworthy counts. |
 | **Each item has a self-description** (a one-liner, an abstract, a stated purpose) | Grouping evidence is quoted from it. Without one, every placement is a judgment call. |
-| **The items fall into 4 to 8 kinds** a stranger could name | That's what the map and the pages show. Fewer is one list; more doesn't fit a screen. |
+| **The items fall into 4 to 12 kinds** a stranger could name | That's what the map and the pages show. Fewer is one list; more doesn't fit a screen. |
 | **The reader cares about the spread**, not one item | If they already know which item they want, search beats a map. |
 
 ## Good fits
@@ -47,10 +47,9 @@ What the page answers instantly, from the data alone:
 - **Ranking by one stated number:** largest teams, biggest awards, most co-sponsors; medians by group.
 - **Geography by one stated place:** where items are based, and which are outside the main hub.
 - **Method:** how groups were drawn and how many placements are judgment calls.
+- **Shifts across slices**, with a filter: how each group splits across batches or years (counts only, no trend claims).
 
-What the viewer's Claude answers from the data: comparisons inside or across groups, "which ones do X", summaries of a group.
-
-What goes to notes and web research: anything the source doesn't state (funding, news, outcomes, people's track records), and anything after the snapshot date.
+What goes to the viewer's Claude chat (picks plus a question): comparisons inside or across groups, "which ones do X", summaries, and anything the source doesn't state (funding, news, outcomes, people's track records) or that happened after the snapshot date, which needs web research with citations.
 
 What an atlas deliberately does not do: score, rank by quality, predict, or call trends. Narration reports what the source says and counts; the reader draws conclusions.
 
@@ -59,5 +58,5 @@ What an atlas deliberately does not do: score, rank by quality, predict, or call
 1. **Primary record first:** the organiser, registry, regulator or publisher that defines the collection. Record the exact URL and the date you read it.
 2. **The item's own words** for `summary`, copied verbatim, never a paraphrase or a press description.
 3. **Facts only where the source states them** for most items. A fact present for a third of items makes misleading medians; leave it out.
-4. **Secondary sources** (press, databases, aggregators) don't go into the atlas. They're for research notes, cited per answer.
+4. **Secondary sources** (press, databases, aggregators) don't go into the atlas. They're for answers in the chat, cited per answer.
 5. **If the record is paywalled, partial or behind a login**, say so in the intent step. Don't fill gaps from memory.

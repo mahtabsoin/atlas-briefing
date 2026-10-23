@@ -1,22 +1,14 @@
 // The one thing on screen. Each scene is readable at a glance and fits the stage.
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Card } from "../../shared/card";
-import { groupMedian, inGroup, placeCounts } from "../../shared/dataset";
+import { groupMedian, inGroup, placeCounts, spread } from "../../shared/dataset";
 import { factOf, formatFact, type Atlas, type Item } from "../../shared/types";
 import { AtlasMap } from "./AtlasMap";
 import { CardView } from "./CardView";
 
-export type AnswerState = {
-  question: string;
-  status: "running" | "done" | "error";
-  steps: string[];
-  card?: Card;
-  error?: string;
-  /** Set when the answer needs sources beyond the atlas. */
-  canResearch?: boolean;
-};
+export type AnswerState = { question: string; card: Card };
 
-type Nav = { onItem: (id: string) => void; onNote: () => void };
+type Nav = { onItem: (id: string) => void; onAdd: () => void; added: boolean; aside: ReactNode };
 
 function Evidence({ it }: { it: Item }) {
   if (!it.evidence) return <>{it.summary}</>;
@@ -30,41 +22,31 @@ function Evidence({ it }: { it: Item }) {
   );
 }
 
-function NoteButton({ onNote }: { onNote: () => void }) {
-  return (
-    <button className="btn" onClick={onNote} title="Leave a note for Claude to research (N)">
-      + Note
-    </button>
-  );
-}
-
-function Head({ title, label, onNote }: { title: string; label?: string; onNote: () => void }) {
+function Head({ title, label, onAdd, added }: { title: string; label?: string; onAdd: () => void; added: boolean }) {
   return (
     <div className="head">
       <div>
         {label && <span className="label">{label}</span>}
         <h1>{title}</h1>
       </div>
-      <NoteButton onNote={onNote} />
+      <button className={`btn ${added ? "on" : ""}`} onClick={onAdd} disabled={added} title="Add this to what you hand to Claude (A)">
+        {added ? "✓ Added" : "+ Add"}
+      </button>
     </div>
   );
 }
 
-export function OverviewScene({ atlas, onGroup, onItem, onNote }: { atlas: Atlas; onGroup: (g: number) => void } & Nav) {
+const shortValue = (v: string) => v.split(" ")[0];
+
+export function OverviewScene({ atlas, full, onGroup, onItem, onAdd, added, aside }: { atlas: Atlas; full: Atlas; onGroup: (g: number) => void } & Nav) {
+  const grouped = atlas.items.filter((it) => it.group >= 0).length;
+  const lead = atlas === full ? atlas.overview : `${atlas.items.length} of the ${full.items.length} ${atlas.noun[1]}. ${grouped} fall into the groups; ${atlas.items.length - grouped} are ungrouped.`;
   return (
     <div className="scene-body fill overview" key="overview">
       <div className="overview-side">
-        <Head title={atlas.title} onNote={onNote} />
-        <p className="lead">{atlas.overview}</p>
-        <nav className="toc" aria-label="Groups">
-          {atlas.groups.map((g, i) => (
-            <button key={g.id} onClick={() => onGroup(i)}>
-              <span className="k num">{String(i + 1).padStart(2, "0")}</span>
-              <span>{g.name}</span>
-              <span className="c num">{g.count}</span>
-            </button>
-          ))}
-        </nav>
+        <Head title={atlas === full ? atlas.title : scopeOf(atlas, full)} label={atlas === full ? undefined : atlas.title} onAdd={onAdd} added={added} />
+        <p className="lead">{lead}</p>
+        {aside}
         <p className="fine">
           Source: <a href={atlas.source.url} target="_blank" rel="noopener noreferrer">{atlas.source.name}</a>, {atlas.source.checked}.
         </p>
@@ -76,23 +58,43 @@ export function OverviewScene({ atlas, onGroup, onItem, onNote }: { atlas: Atlas
   );
 }
 
-export function GroupScene({ atlas, group, onItem, onNote }: { atlas: Atlas; group: number } & Nav) {
+/** Which filter value an atlas is scoped to, read back from its first item. */
+const scopeOf = (atlas: Atlas, full: Atlas) => (atlas.filter && atlas !== full ? String(atlas.items[0]?.facts[atlas.filter.key] ?? "") : "");
+
+export function GroupScene({ atlas, full, group, onItem, onAdd, added, aside }: { atlas: Atlas; full: Atlas; group: number } & Nav) {
   const g = atlas.groups[group];
   const members = inGroup(atlas, group);
   const num = factOf(atlas, "number");
   const place = factOf(atlas, "place");
   const top = place ? placeCounts(atlas, group, place.key)[0] : null;
+  const split = spread(full, group);
+  const scope = scopeOf(atlas, full);
+  const max = Math.max(1, ...split.map((s) => s.count));
   return (
-    <div className="scene-body fill group" key={g.id}>
+    <div className="scene-body fill split" key={g.id}>
       <div className="intro">
-        <Head title={g.name} label={`Group ${group + 1} of ${atlas.groups.length}`} onNote={onNote} />
-        <p className="lead">{g.narration}</p>
+        <Head title={g.name} label={`Group ${group + 1} of ${atlas.groups.length}${scope ? ` · ${scope}: ${g.count}` : ""}`} onAdd={onAdd} added={added} />
+        <p className="lead">{full.groups[group].narration}</p>
+        <div className="figures">
+        {split.length > 0 && (
+          <div className="spread" aria-label={`By ${full.filter!.label.toLowerCase()}`}>
+            {split.map((s) => (
+              <div key={s.value} className={scope && scope !== s.value ? "off" : ""} title={`${s.value}: ${s.count}`}>
+                <span className="bar"><i style={{ height: `${Math.round((s.count / max) * 100)}%` }} /></span>
+                <b className="num">{s.count}</b>
+                <small>{shortValue(s.value)}</small>
+              </div>
+            ))}
+          </div>
+        )}
         {(num || (top && top[0] !== "Not listed")) && (
           <div className="stats">
             {num && <div className="stat"><b>{groupMedian(atlas, group, num.key)}</b><span>median {num.label.toLowerCase()}</span></div>}
             {top && top[0] !== "Not listed" && <div className="stat"><b>{top[1]}</b><span>in {top[0]}</span></div>}
           </div>
         )}
+        </div>
+        {aside}
       </div>
       <FitTiles
         count={members.length}
@@ -115,70 +117,65 @@ export function GroupScene({ atlas, group, onItem, onNote }: { atlas: Atlas; gro
   );
 }
 
-export function ItemScene({ atlas, id, onItem, onNote }: { atlas: Atlas; id: string } & Nav) {
+export function ItemScene({ atlas, id, onItem, onAdd, added, aside }: { atlas: Atlas; id: string } & Nav) {
   const it = atlas.items.find((x) => x.id === id)!;
-  const neighbours = it.group < 0 ? [] : inGroup(atlas, it.group).filter((x) => x.id !== id).slice(0, 6);
+  const neighbours = it.group < 0 ? [] : inGroup(atlas, it.group).filter((x) => x.id !== id);
   const facts = atlas.facts.filter((f) => it.facts[f.key] !== undefined);
   return (
-    <div className="scene-body" key={id}>
-      <Head title={it.name} label={it.group < 0 ? "Ungrouped" : atlas.groups[it.group].name} onNote={onNote} />
-      <p className="summary">
-        <Evidence it={it} />
-      </p>
-      {it.description && <p className="lead" style={{ fontSize: 15.5 }}>{it.description}</p>}
-      {facts.length > 0 && (
-        <div className="kv">
-          {facts.map((f) => (
-            <div key={f.key}><small>{f.label}</small><b>{formatFact(f, it.facts[f.key])}</b></div>
-          ))}
-        </div>
-      )}
-      <div className="row" style={{ fontSize: 13 }}>
-        {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer">{atlas.source.name} ↗</a>}
-        {it.links.map((l) => (
-          <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>
-        ))}
-        <span className="fine">As listed on {atlas.source.checked}.</span>
-      </div>
-      {neighbours.length > 0 && (
-        <>
-          <div className="label">Same group</div>
-          <div className="tiles">
-            {neighbours.map((n) => (
-              <button key={n.id} className="tile" onClick={() => onItem(n.id)}>
-                <b>{n.name}</b>
-                <small>{n.summary}</small>
-              </button>
+    <div className="scene-body fill split" key={id}>
+      <div className="intro">
+        <Head title={it.name} label={it.group < 0 ? "Ungrouped" : atlas.groups[it.group].name} onAdd={onAdd} added={added} />
+        <p className="summary">
+          <Evidence it={it} />
+        </p>
+        {it.description && <p className="desc">{it.description}</p>}
+        {facts.length > 0 && (
+          <div className="kv">
+            {facts.map((f) => (
+              <div key={f.key}><small>{f.label}</small><b>{formatFact(f, it.facts[f.key])}</b></div>
             ))}
           </div>
-        </>
+        )}
+        <div className="row" style={{ fontSize: 13 }}>
+          {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer">{atlas.source.name} ↗</a>}
+          {it.links.map((l) => (
+            <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>
+          ))}
+          <span className="fine">As listed on {atlas.source.checked}.</span>
+        </div>
+        {aside}
+      </div>
+      {neighbours.length > 0 ? (
+        <div className="tiles-col">
+          <div className="label">Same group</div>
+          <FitTiles
+            count={neighbours.length}
+            render={(i) => (
+              <button key={neighbours[i].id} className="tile" onClick={() => onItem(neighbours[i].id)}>
+                <b>{neighbours[i].name}</b>
+                <small>{neighbours[i].summary}</small>
+              </button>
+            )}
+          />
+        </div>
+      ) : (
+        <div />
       )}
     </div>
   );
 }
 
-export function AnswerScene({ atlas, answer, onItem, onNote }: { atlas: Atlas; answer: AnswerState } & Nav) {
+export function AnswerScene({ atlas, answer, onItem, onAdd, added, aside }: { atlas: Atlas; answer: AnswerState } & Nav) {
   return (
-    <div className="scene-body" key={answer.question}>
-      <Head title={answer.question} label={answer.card ? "Answer · from the atlas" : "Answer"} onNote={onNote} />
-      {answer.status === "running" && (
-        <div className="steps" aria-live="polite">
-          {(answer.steps.length ? answer.steps : ["Thinking…"]).map((s, i, all) => (
-            <div key={i} className={`step ${i === all.length - 1 ? "run" : ""}`}>
-              <i />
-              {s}
-            </div>
-          ))}
-        </div>
-      )}
-      {answer.status === "error" && <p className="summary err">{answer.error}</p>}
-      {answer.card && <CardView atlas={atlas} card={answer.card} onItem={onItem} />}
-      {answer.status !== "running" && answer.canResearch && (
-        <div className="box row" style={{ justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13.5 }}>{answer.card?.needsWeb ?? "The atlas can't answer this."} Leave it as a note and Claude researches it on the web.</span>
-          <button className="btn primary" onClick={onNote}>Note it for research</button>
-        </div>
-      )}
+    <div className="scene-body fill split answer" key={answer.question}>
+      <div className="intro">
+        <Head title={answer.question} label="Quick fact · from the atlas" onAdd={onAdd} added={added} />
+        <p className="summary">{answer.card.summary}</p>
+        {aside}
+      </div>
+      <div className="answer-body">
+        <CardView atlas={atlas} card={answer.card} onItem={onItem} hideSummary />
+      </div>
     </div>
   );
 }

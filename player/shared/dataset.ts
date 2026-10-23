@@ -60,7 +60,13 @@ export function findItemInText(atlas: Atlas, text: string): Item | undefined {
 export function findGroupInText(atlas: Atlas, text: string): number | null {
   const s = text.toLowerCase();
   const i = atlas.groups.findIndex((g) => s.includes(g.name.toLowerCase()) || s.includes(g.short.toLowerCase()));
-  return i >= 0 ? i : null;
+  if (i >= 0) return i;
+  // Then the short label's first word on its own ("defense" for "Defense & security").
+  const j = atlas.groups.findIndex((g) => {
+    const w = g.short.toLowerCase().split(/[^a-z0-9]+/)[0];
+    return w.length > 3 && new RegExp(`\\b${w}\\b`).test(s);
+  });
+  return j >= 0 ? j : null;
 }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -78,3 +84,35 @@ export const itemBrief = (it: Item, atlas: Atlas) => ({
   group: it.group >= 0 ? atlas.groups[it.group].name : "Ungrouped",
   urls: itemUrls(it),
 });
+
+/** The atlas as seen through one filter value: the same map positions, fewer items, recounted groups. */
+export function scopeTo(atlas: Atlas, value: string | null): Atlas {
+  if (!value || !atlas.filter) return atlas;
+  const key = atlas.filter.key;
+  // Re-pack each group's spiral so a filtered cluster stays solid, at the same density as the full map.
+  const spacing = 1.45 * Math.min(1.6, Math.max(0.6, Math.sqrt(230 / atlas.items.length)));
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const seen = new Map<number, number>();
+  const items = atlas.items
+    .filter((it) => it.facts[key] === value)
+    .map((it) => {
+      if (it.group < 0) return it;
+      const k = seen.get(it.group) ?? 0;
+      seen.set(it.group, k + 1);
+      const [cx, cy] = atlas.groups[it.group].center;
+      const r = spacing * Math.sqrt(k + 0.6);
+      return { ...it, x: Math.round((cx + r * Math.cos(k * golden)) * 10) / 10, y: Math.round((cy + r * 1.6 * Math.sin(k * golden)) * 10) / 10 };
+    });
+  const groups = atlas.groups.map((g, i) => {
+    const members = items.filter((it) => it.group === i);
+    return { ...g, count: members.length, judgmentCalls: members.filter((m) => !m.evidence).length };
+  });
+  return { ...atlas, items, groups };
+}
+
+/** How a group's full-collection members split across the filter values. */
+export function spread(atlas: Atlas, group: number): { value: string; count: number }[] {
+  if (!atlas.filter) return [];
+  const key = atlas.filter.key;
+  return atlas.filter.values.map((value) => ({ value, count: atlas.items.filter((it) => it.group === group && it.facts[key] === value).length }));
+}
