@@ -1,43 +1,87 @@
-# Batch Signal
+# Atlas Briefing
 
-Batch reference: `yc__s26` (YC Summer 2026).
+A Claude skill that turns a big collection into a one-screen briefing you can page through, filter and pick from, then hands your picks to your Claude chat for the follow-up.
 
-An interactive YC startup explorer with narrated scenes, startup filters, and an ElevenLabs conversational host that can navigate the experience while answering questions.
+Point it at something with too many entries to read ("every company in YC's 2026 batches", "every talk at this conference", "this year's grant awards"). Claude sharpens what you want from it, reads the official source, groups the items with quoted evidence, and publishes an interactive atlas as a Claude artifact. You get the lay of the land in a few minutes without scrolling a list or opening tabs.
 
-## Status
+![Overview: 788 companies as dots in twelve labelled groups](docs/screenshots/1-overview.png)
 
-This is a prototype. The dataset covers 230 publicly listed YC Summer 2026 startups, collected October 21, 2026, with YC source links. Missing funding or traction is unknown, not zero.
+## What it's good for
 
-- Play story uses browser SpeechSynthesis.
-- Live conversation uses ElevenLabs Agents, configured with `eleven_flash_v2_5` and `gpt-5.4-mini`. No explicit voice ID is configured.
-- The live credential flow has not yet been validated end to end with an ElevenLabs API key.
+Collections of 50 to 600 comparable things (up to about 1,200 with a filter), listed by one official source, where each item describes itself and the reader wants the spread rather than one answer: accelerator batches, conference programmes, grant awards, bills in a session, trial registries, exhibitor lists, open-source ecosystems.
 
-## Development
+Not for rankings, timelines, single deep subjects, live data, or anything without a source of record. [The fit guide](skills/atlas-briefing/references/fit-guide.md) has examples of both, the analysis an atlas answers instantly versus what goes to research, and how to choose sources. The skill checks requests against it before building.
 
-Requires Node.js >=22.13 and pnpm 11.25.0.
+## What the viewer gets
 
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
+| | |
+|---|---|
+| **One screen, like slides.** ← → through an overview and one page per group. Nothing scrolls on a laptop; long groups page in sets. | ![A group page](docs/screenshots/2-group.png) |
+| **Evidence you can see.** Each item's own one-liner, with the phrase that put it in its group highlighted. Placements without such a phrase are labelled *judgment call*. | ![An item page](docs/screenshots/3-item.png) |
+| **Slices that compare.** A filter (here: Winter, Spring, Summer, Fall) narrows the whole atlas to one slice. Clusters resize, and each group shows how it splits across slices. | ![Filtered to one batch](docs/screenshots/5-filter.png) |
+| **Quick facts.** Rankings, places, the ungrouped items and "how were these grouped?" answer at once from the data. | ![A quick fact](docs/screenshots/4-quick-fact.png) |
+| **Continue in Claude.** "+ Add" collects pages, groups and companies into a tray at the foot of the left column. They reach the Claude chat beside the atlas as one attachment, with what you're viewing, so you can ask about several at once. Suggested questions send the tray with the question. | |
+
+Light and dark themes; keyboard: ← → page, `A` add, `Esc` back.
+
+## How it works
+
+```
+You: "make an atlas of …"
+ │
+ ├─ 1 Intent     up to 3 questions, each with a default: who it's for, the exact collection, the source of record
+ ├─ 2 Collect    items from the official source; summaries copied verbatim, facts left null when not stated
+ ├─ 3 Group      4–12 groups with rubrics; membership needs a phrase quoted from the item's own summary
+ ├─ 4 Validate   scripts/build.mjs refuses unquoted evidence and counts the data doesn't support
+ └─ 5 Publish    prebuilt player + inlined data → one HTML page → Claude artifact
+                         │
+          viewer pages, filters, picks with "+ Add"
+                         │
+          picks + question → the viewer's own Claude chat → answered there, web research cited
 ```
 
-Open the URL printed by the server. Portable local development sign-in is available at `/signin-with-chatgpt?return_to=/`. Run `pnpm build` to build. See [starter documentation](docs/sites-starter.md) for framework and deployment details.
+Cost: building an atlas is one Claude conversation. Viewing it costs nothing; follow-up questions run in the viewer's own Claude chat. No API keys, servers or third-party services.
 
-## Source map
+## Install
 
-- `public/app.js`: playback, filters, conversational client tools.
-- `public/data.json`: startup dataset and sources.
-- `public/style.css`: presentation styles.
-- `public/elevenlabs.js`: bundled ElevenLabs browser client.
-- `app/player-markup.ts`, `app/player.tsx`: player shell.
-- `app/api/voice/route.ts`: agent creation and signed conversation URLs.
+Copy or symlink the skill folder into your Claude skills:
 
-## Voice and deployment
+```bash
+git clone https://github.com/mahtabsoin/atlas-briefing
+ln -s "$PWD/atlas-briefing/skills/atlas-briefing" ~/.claude/skills/atlas-briefing
+```
 
-Use the private setup form to provide your ElevenLabs API key. The server forwards it to ElevenLabs; the app does not persist the key. The agent ID is saved in local storage. Never commit credentials or expose them in frontend environment variables.
+The skill needs Node 18+ and nothing else: the player ships prebuilt in `skills/atlas-briefing/assets/player.html`. In a Claude chat, upload the `skills/atlas-briefing` folder as a skill.
 
-Built for ChatGPT Sites using Vinext, React, Vite, and Cloudflare Workers. The voice route relies on Sites-provided identity headers. Deployment elsewhere requires verified server-side authentication; never trust client-supplied identity headers. The original hosting project binding is omitted from this export.
+## Use
 
-## Provenance
+- **Build:** "Make an atlas of every company in YC's 2026 batches for a journalist who covers AI." Answer the intent questions or say "go".
+- **Explore:** page, filter, open quick facts.
+- **Follow up:** "+ Add" what interests you, then ask in your chat or press a suggested question.
 
-Independent snapshot of Sites commit `0c82ceb64ed008c3889a3a48d5b97d1d46c2a230`. GitHub pushes do not automatically redeploy the existing Site. Third-party notices are preserved under `vendor/` and the starter scripts. YC company content remains attributable to its original sources.
+Sharing: an atlas declares only the `room` capability, so it can be shared by public link. Where a viewer has no chat beside the atlas, hand-offs are copied as text to paste instead, and the page says so.
+
+## Example: YC 2026
+
+[`atlases/yc-2026/collection.json`](atlases/yc-2026/collection.json): all 788 companies in YC's four 2026 batches (Winter 197, Spring 193, Summer 230, Fall 168), read 2026-10-23 from YC's directory index through the [yc-oss/api](https://github.com/yc-oss/api) daily mirror. 640 fall into twelve groups (one judgment call); 148 are ungrouped. Rebuild it with:
+
+```bash
+node skills/atlas-briefing/scripts/build.mjs atlases/yc-2026/collection.json
+```
+
+## Limits
+
+- Built for 50 to 600 items and 4 to 8 groups; up to about 1,200 items and 12 groups with a filter. Split bigger collections.
+- An atlas is a snapshot of its source on the date shown. Rebuild to refresh.
+- Quick facts only know the atlas; anything beyond it (news, money) goes to the chat, where Claude researches it on the web.
+- Handing picks to a chat needs the atlas open beside a Claude conversation. Elsewhere (a plain file, some public-link views) the hand-off is copied as text, the one place copying is unavoidable.
+- No voice: artifacts can't use the microphone in Claude today.
+
+## Repository
+
+| Path | What |
+|---|---|
+| [`skills/atlas-briefing/`](skills/atlas-briefing/) | The skill: instructions, fit guide, data format, builder, prebuilt player |
+| [`atlases/yc-2026/`](atlases/yc-2026/) | The worked example |
+| [`player/`](player/) | Player source (React + Vite) for changing the page itself |
+| `docs/screenshots/` | The images above |
